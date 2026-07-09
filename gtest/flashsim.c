@@ -10,7 +10,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "ring_file_system.h"
@@ -31,25 +30,44 @@ void* em_track = NULL;
 struct flashsim {
     int size;
     int sector_size;
-    FILE *fh;
+    uint8_t *mem;
 };
+
+static uint16_t reg_windex;
+static uint16_t reg_rindex;
+static uint16_t reg_count;
+static uint16_t reg_rec_index;
+static uint16_t reg_rec_count;
+
+static void flashsim_reset_index(void)
+{
+	reg_windex = 0;
+	reg_rindex = 0;
+	reg_count = 0;
+	reg_rec_index = 0;
+	reg_rec_count = 0;
+}
 
 struct flashsim *flashsim_open(const char *name, int size, int sector_size)
 {
+    (void)name;
+
     struct flashsim *sim = malloc(sizeof(struct flashsim));
+    assert(sim != NULL);
 
     sim->size = size;
     sim->sector_size = sector_size;
-    sim->fh = fopen(name, "w+");
-    assert(sim->fh != NULL);
-    assert(ftruncate(fileno(sim->fh), size) == 0);
+    sim->mem = malloc((size_t)size);
+    assert(sim->mem != NULL);
+    memset(sim->mem, 0xff, (size_t)size);
+    flashsim_reset_index();
 
     return sim;
 }
 
 void flashsim_close(struct flashsim *sim)
 {
-    fclose(sim->fh);
+    free(sim->mem);
     free(sim);
 }
 
@@ -58,19 +76,13 @@ void flashsim_sector_erase(struct flashsim *sim, int addr)
     int sector_start = addr - (addr % sim->sector_size);
     logprintf("flashsim_erase  (0x%08x) * erasing sector at 0x%08x\n", addr, sector_start);
 
-    void *empty = malloc(sim->sector_size);
-    memset(empty, 0xff, sim->sector_size);
-
-    assert(fseek(sim->fh, sector_start, SEEK_SET) == 0);
-    assert(fwrite(empty, 1, sim->sector_size, sim->fh) == (size_t) sim->sector_size);
-
-    free(empty);
+    memset(sim->mem + sector_start, 0xff, (size_t)sim->sector_size);
 }
 
 void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len)
 {
-    assert(fseek(sim->fh, addr, SEEK_SET) == 0);
-    assert(fread(buf, 1, len, sim->fh) == (size_t) len);
+    assert(addr >= 0 && len >= 0 && addr + len <= sim->size);
+    memcpy(buf, sim->mem + addr, (size_t)len);
 
     logprintf("flashsim_read   (0x%08x) = %d bytes [ ", addr, len);
     for (int i=0; i<len; i++) {
@@ -85,6 +97,8 @@ void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len)
 
 void flashsim_program(struct flashsim *sim, int addr, const uint8_t *buf, int len)
 {
+    assert(addr >= 0 && len >= 0 && addr + len <= sim->size);
+
     logprintf("flashsim_program(0x%08x) + %d bytes [ ", addr, len);
     for (int i=0; i<len; i++) {
         logprintf("%02x ", buf[i]);
@@ -95,18 +109,9 @@ void flashsim_program(struct flashsim *sim, int addr, const uint8_t *buf, int le
     }
     logprintf("]\n");
 
-    uint8_t *data = malloc(len);
-
-    assert(fseek(sim->fh, addr, SEEK_SET) == 0);
-    assert(fread(data, 1, len, sim->fh) == (size_t) len);
-
-    for (int i=0; i<(int) len; i++)
-        data[i] &= buf[i];
-
-    assert(fseek(sim->fh, addr, SEEK_SET) == 0);
-    assert(fwrite(data, 1, len, sim->fh) == (size_t) len);
-
-    free(data);
+    for (int i = 0; i < len; i++) {
+        sim->mem[addr + i] &= buf[i];
+    }
 }
 
 struct flashsim *sim;
@@ -175,12 +180,6 @@ int32_t read_distance_data(uint16_t* distance_data, uint32_t* ts)
 	}
 	return count;
 }
-
-uint16_t reg_windex;
-uint16_t reg_rindex;
-uint16_t reg_count;
-uint16_t reg_rec_index;
-uint16_t reg_rec_count;
 
 void load_index(
                        uint16_t *windex,      /**< Pointer to write slot index.      */

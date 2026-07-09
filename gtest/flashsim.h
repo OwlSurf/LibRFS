@@ -14,7 +14,6 @@ extern "C" {
 
 
 #include <stdint.h>
-#include <unistd.h>
 
 #define DIST_MEM_SIZE 524288 // (512kB)
 #define DIST_START_ADDR 0
