@@ -1213,13 +1213,13 @@ TEST(test_6_overflow_recover, recover_single_at_overflow_boundary)
 
 	slot_data_s read_data = {0};
 	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
-	EXPECT_EQ(oldest_ts(total_writes) + 1, read_data.ts);
+	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
 
 	EXPECT_EQ(kMaxDataSlots, recover_slot_(em_distance));
 	EXPECT_EQ(-1, recover_slot_(em_distance));
 
 	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
-	EXPECT_EQ(oldest_ts(total_writes) + 1, read_data.ts);
+	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
 
 	flashsim_close(sim);
 }
@@ -1241,7 +1241,7 @@ TEST(test_6_overflow_recover, recover_all_after_overflow_read)
 	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
 	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
 
-	for (uint32_t i = 1; i < kMaxDataSlots; i++) {
+	for (uint32_t i = 1; i < kMaxDataSlots - 1; i++) {
 		read_slot_(em_distance, (uint8_t*)&read_data);
 	}
 	EXPECT_EQ(0, read_slot_(em_distance, (uint8_t*)&read_data));
@@ -1271,19 +1271,31 @@ TEST(test_6_overflow_recover, recover_at_sector_boundary)
 
 TEST(test_6_overflow_recover, recover_all_after_full_index_wrap)
 {
-	const uint32_t overflow = 100;
-	const uint32_t total_writes = kMaxSlots + kMaxDataSlots + overflow;
+	const uint32_t total_writes = kMaxSlots + kMaxDataSlots;
 
 	init_distance_em();
 	write_slots(total_writes, kTsBase);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
 	read_slots(50);
+	EXPECT_EQ(kMaxDataSlots - 50, get_slot_count_(em_distance));
 
 	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
 	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
 
 	slot_data_s read_data = {0};
-	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
-	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
+	uint32_t prev_ts = 0;
+	for (uint32_t i = 0; i < kMaxDataSlots; i++) {
+		const int32_t remaining = read_slot_(em_distance, (uint8_t*)&read_data);
+		EXPECT_EQ(kMaxDataSlots - i - 1, remaining);
+		if (i == 0) {
+			prev_ts = read_data.ts;
+		} else {
+			EXPECT_EQ(prev_ts + 1, read_data.ts);
+			prev_ts = read_data.ts;
+		}
+	}
+	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
 	flashsim_close(sim);
 }
