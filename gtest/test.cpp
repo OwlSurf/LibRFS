@@ -932,12 +932,11 @@ TEST(test_5_recover_discard, recover_one_slot)
 
 	EXPECT_EQ(3, recover_slot_(em_distance));
 	EXPECT_EQ(3, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
 
 	read_slot_(em_distance, (uint8_t*)&read_data);
 	EXPECT_EQ(1000u, read_data.ts);
 	EXPECT_EQ(2, get_slot_count_(em_distance));
-
-	EXPECT_EQ(-1, recover_slot_(em_distance));
 
 	flashsim_close(sim);
 }
@@ -975,7 +974,7 @@ TEST(test_5_recover_discard, discard_one_slot)
 	EXPECT_EQ(1, get_slot_count_(em_distance));
 
 	EXPECT_EQ(1, discard_slot_(em_distance));
-	EXPECT_EQ(1, recover_slot_(em_distance));
+	EXPECT_EQ(2, recover_slot_(em_distance));
 	EXPECT_EQ(2, get_slot_count_(em_distance));
 
 	read_slot_(em_distance, (uint8_t*)&read_data);
@@ -1024,7 +1023,7 @@ TEST(test_5_recover_discard, recover_all_slots)
 	EXPECT_EQ(5, get_slot_count_(em_distance));
 
 	for (uint32_t i = 0; i < 5; i++) {
-		EXPECT_EQ(5 - i, read_slot_(em_distance, (uint8_t*)&read_data));
+		EXPECT_EQ(4 - i, read_slot_(em_distance, (uint8_t*)&read_data));
 		EXPECT_EQ(3000u + i, read_data.ts);
 	}
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
@@ -1096,7 +1095,7 @@ TEST(test_5_recover_discard, no_op_without_reads)
 	EXPECT_EQ(1, get_slot_count_(em_distance));
 	EXPECT_EQ(-1, recover_slot_(em_distance));
 	EXPECT_EQ(-1, discard_slot_(em_distance));
-	EXPECT_EQ(0, recover_all_slots_(em_distance));
+	EXPECT_EQ(1, recover_all_slots_(em_distance));
 	EXPECT_EQ(1, get_slot_count_(em_distance));
 	EXPECT_EQ(0, discard_all_slots_(em_distance));
 	EXPECT_EQ(0, get_slot_count_(em_distance));
