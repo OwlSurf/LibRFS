@@ -69,6 +69,12 @@ int32_t read_one_slot(slot_data_s *out)
 	return read_slot_(em_distance, (uint8_t*)out);
 }
 
+void simulate_reboot(void)
+{
+	save_em_indexes_(em_distance);
+	em_init_(em_distance);
+}
+
 } // namespace
 
 TEST(test_pos_1, lots_read_2_slots) 
@@ -1423,9 +1429,14 @@ TEST(test_7_lifecycle, five_overflow_read_recover_read_discard)
 		EXPECT_EQ(kMaxDataSlots - 501 + i + 1, recover_slot_(em_distance));
 	}
 
-	EXPECT_EQ(kMaxDataSlots - 502, read_one_slot(&read_data));
+	EXPECT_EQ(kMaxDataSlots - 402, read_one_slot(&read_data));
+	EXPECT_EQ(kMaxDataSlots - 401, recover_slot_(em_distance));
+
+	for (uint32_t i = 0; i < 102; i++) {
+		EXPECT_EQ(kMaxDataSlots - 401, discard_slot_(em_distance));
+	}
 	EXPECT_EQ(-1, recover_slot_(em_distance));
-	EXPECT_EQ(kMaxDataSlots - 502, get_slot_count_(em_distance));
+	EXPECT_EQ(kMaxDataSlots - 401, get_slot_count_(em_distance));
 
 	flashsim_close(sim);
 }
@@ -1560,4 +1571,125 @@ TEST(test_7_lifecycle, repeated_overflow_sessions_with_reset)
 
 		flashsim_close(sim);
 	}
+}
+
+TEST(test_8_reboot, three_reboots_during_overflow_writes)
+{
+	init_distance_em();
+
+	uint32_t ts = kTsBase;
+	write_slots(kMaxDataSlots + kSectorSlots, ts);
+	ts += kMaxDataSlots + kSectorSlots;
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	write_slots(kSectorSlots, ts);
+	ts += kSectorSlots;
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	write_slots(kSectorSlots, ts);
+	ts += kSectorSlots;
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	write_slots(kSectorSlots, ts);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
+
+TEST(test_8_reboot, overflow_read_reboot_recover_discard)
+{
+	const uint32_t total_writes = kMaxDataSlots + 5 * kSectorSlots;
+
+	init_distance_em();
+	write_slots(total_writes, kTsBase);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	read_slots(500);
+	EXPECT_EQ(kMaxDataSlots - 500, get_slot_count_(em_distance));
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots - 500, get_slot_count_(em_distance));
+
+	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	read_slots(300);
+	EXPECT_EQ(kMaxDataSlots - 300, get_slot_count_(em_distance));
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots - 300, get_slot_count_(em_distance));
+
+	for (uint32_t i = 0; i < 300; i++) {
+		discard_slot_(em_distance);
+	}
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(kMaxDataSlots - 300, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
+
+TEST(test_8_reboot, five_overflow_with_reboots_between_phases)
+{
+	const uint32_t overflow = 5 * kSectorSlots;
+	const uint32_t total_writes = kMaxDataSlots + overflow;
+
+	init_distance_em();
+	write_slots(total_writes, kTsBase);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	simulate_reboot();
+
+	read_slots(1000);
+	EXPECT_EQ(kMaxDataSlots - 1000, get_slot_count_(em_distance));
+	simulate_reboot();
+
+	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	simulate_reboot();
+
+	read_slots(500);
+	EXPECT_EQ(kMaxDataSlots - 501, get_slot_count_(em_distance));
+	simulate_reboot();
+
+	for (uint32_t i = 0; i < 300; i++) {
+		discard_slot_(em_distance);
+	}
+	for (uint32_t i = 0; i < 100; i++) {
+		EXPECT_EQ(kMaxDataSlots - 501 + i + 1, recover_slot_(em_distance));
+	}
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots - 401, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(kMaxDataSlots - 402, read_one_slot(&read_data));
+
+	flashsim_close(sim);
+}
+
+TEST(test_8_reboot, repeated_reboot_during_incremental_overflow)
+{
+	init_distance_em();
+
+	uint32_t ts = kTsBase;
+	write_slots(kMaxDataSlots, ts);
+	ts += kMaxDataSlots;
+	simulate_reboot();
+
+	for (uint32_t batch = 0; batch < 5; batch++) {
+		write_slots(kSectorSlots, ts);
+		ts += kSectorSlots;
+		simulate_reboot();
+		EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	}
+
+	read_slots(400);
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots - 400, get_slot_count_(em_distance));
+
+	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
 }
