@@ -5,7 +5,7 @@
 
 TEST(test_pos_1, lots_read_2_slots) 
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
 
 
 	em_track = em_driver_init_((void*)op_sector_erase,
@@ -60,7 +60,7 @@ TEST(test_pos_1, lots_read_2_slots)
 
 TEST(test_1, lots_read_2_slots) 
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
 	em_distance = em_driver_init_((void*)op_sector_erase,
 			  (void*)op_read,
 			  (void*)op_program,
@@ -94,7 +94,7 @@ TEST(test_1, lots_read_2_slots)
 
 TEST(test_1, case_write_200_slots_read_100_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
 
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
@@ -128,7 +128,7 @@ TEST(test_1, case_write_200_slots_read_100_slots)
 
 TEST(test_1, case_write_150_slots_read_150_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -162,7 +162,7 @@ TEST(test_1, case_write_150_slots_read_150_slots)
 
 TEST(test_1, case_write_511_slots_read_511_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -195,7 +195,7 @@ TEST(test_1, case_write_511_slots_read_511_slots)
 
 TEST(test_1, case_write_512_slots_read_512_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -229,7 +229,7 @@ TEST(test_1, case_write_512_slots_read_512_slots)
 
 TEST(test_1, case_write_512_slots_read_333_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -264,7 +264,7 @@ TEST(test_1, case_write_512_slots_read_333_slots)
 
 TEST(test_1, case_write_520_slots_read_520_slots)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -333,7 +333,7 @@ TEST(test_1, case_write_4096_slots_read_4096_slots)
 
 TEST(test_1, case_write_4097_slots_read_4097)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -369,7 +369,7 @@ TEST(test_1, case_write_4097_slots_read_4097)
 
 TEST(test_2_overwrite, case_write_69632_slots_read_1_slot )
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -400,7 +400,7 @@ TEST(test_2_overwrite, case_write_69632_slots_read_1_slot )
 
 TEST(test_2_overwrite, case_write_69633_slots_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -432,7 +432,7 @@ TEST(test_2_overwrite, case_write_69633_slots_read_1_slot)
 
 TEST(test_2_overwrite, case_write_65537_slots_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -464,7 +464,7 @@ TEST(test_2_overwrite, case_write_65537_slots_read_1_slot)
 
 TEST(test_2_overwrite, case_write_69636_slots_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -496,7 +496,7 @@ TEST(test_2_overwrite, case_write_69636_slots_read_1_slot)
 
 TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -529,7 +529,7 @@ TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
 
 TEST(test_2_overwrite, case_write_69638_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -561,7 +561,7 @@ TEST(test_2_overwrite, case_write_69638_read_1_slot)
 
 TEST(test_2_overwrite, case_write_71536_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -594,7 +594,7 @@ TEST(test_2_overwrite, case_write_71536_read_1_slot)
 
 TEST(test_2_overwrite, case_write_71556_slots_read_1_slot)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -625,7 +625,7 @@ TEST(test_2_overwrite, case_write_71556_slots_read_1_slot)
 
 TEST(test_3_overwrite_buffer, case_write_200_read_50_write_320_read_1)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -669,7 +669,7 @@ TEST(test_3_overwrite_buffer, case_write_200_read_50_write_320_read_1)
 
 TEST(test_3_overwrite_buffer, case_write_812_read_100_write_612_read_1)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -713,7 +713,7 @@ TEST(test_3_overwrite_buffer, case_write_812_read_100_write_612_read_1)
 
 TEST(test_3_overwrite_buffer, case_write_511_read_1_write_2_read_1)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -752,7 +752,7 @@ TEST(test_3_overwrite_buffer, case_write_511_read_1_write_2_read_1)
 
 TEST(test_3_overwrite_read_overwrite, case_write_511_read_1_write_2_read_1)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,
@@ -796,7 +796,7 @@ TEST(test_3_overwrite_read_overwrite, case_write_511_read_1_write_2_read_1)
 
 TEST(test_4_count, case_write_some_slote_read_one)
 {
-	sim = flashsim_open("example.sim", 128*4096, 4096);
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
         em_distance = em_driver_init_((void*)op_sector_erase,
 				  (void*)op_read,
 				  (void*)op_program,

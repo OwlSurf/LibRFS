@@ -76,6 +76,7 @@ void flashsim_sector_erase(struct flashsim *sim, int addr)
     int sector_start = addr - (addr % sim->sector_size);
     logprintf("flashsim_erase  (0x%08x) * erasing sector at 0x%08x\n", addr, sector_start);
 
+    assert(sector_start >= 0 && sector_start + sim->sector_size <= sim->size);
     memset(sim->mem + sector_start, 0xff, (size_t)sim->sector_size);
 }
 

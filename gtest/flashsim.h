@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define DIST_MEM_SIZE 524288 // (512kB)
@@ -23,7 +24,7 @@ extern "C" {
 #define TRACK_SLOT_SIZE 16     //(128B Bytes)
 #define TRACK_START_ADDR 0x80000 //()
 
-
+#define FLASHSIM_SIZE (TRACK_START_ADDR + TRACK_MEM_SIZE)
 extern void* em_distance;
 extern void* em_track;
 extern uint8_t distance_sector_read_buffer[];
