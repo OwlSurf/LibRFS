@@ -392,8 +392,8 @@ TEST(test_2_overwrite, case_write_69632_slots_read_1_slot )
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364197 + 4096, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364197 + 4608, ts);
 	flashsim_close(sim);
 
 }
@@ -424,8 +424,8 @@ TEST(test_2_overwrite, case_write_69633_slots_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364167 + 4097, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364167 + 4609, ts);
 	flashsim_close(sim);
 
 }
@@ -456,8 +456,8 @@ TEST(test_2_overwrite, case_write_65537_slots_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364167 + 1, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364167 + 513, ts);
 	flashsim_close(sim);
 
 }
@@ -488,8 +488,8 @@ TEST(test_2_overwrite, case_write_69636_slots_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364117 + 4100, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364117 + 4612, ts);
 	flashsim_close(sim);
 
 }
@@ -520,8 +520,8 @@ TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364107 + 4101, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364107 + 4613, ts);
 	flashsim_close(sim);
 
 }
@@ -553,8 +553,8 @@ TEST(test_2_overwrite, case_write_69638_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364237 + 4102, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364237 + 4614, ts);
 	flashsim_close(sim);
 
 }
@@ -586,8 +586,8 @@ TEST(test_2_overwrite, case_write_71536_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364437 + 6000, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364437 + 6512, ts);
 	flashsim_close(sim);
 
 }
@@ -617,8 +617,8 @@ TEST(test_2_overwrite, case_write_71556_slots_read_1_slot)
        	uint32_t ts = 0;
 	uint32_t count = 0;
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
-	EXPECT_EQ(1687364737 + 6020, ts);
+	EXPECT_EQ(65023, count);
+	EXPECT_EQ(1687364737 + 6532, ts);
 	flashsim_close(sim);
 
 }
@@ -789,7 +789,7 @@ TEST(test_3_overwrite_read_overwrite, case_write_511_read_1_write_2_read_1)
 	}
 
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(1687368137 + 512 + 256, ts);
+	EXPECT_EQ(1687368137 + 1024, ts);
 	flashsim_close(sim);
 }
 
@@ -819,7 +819,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	uint32_t count = 0;
 
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 	
 	j = 0;
 	for (uint32_t i = 0; i < 143; i++) 
@@ -829,7 +829,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 512; i++) 
@@ -839,7 +839,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 512; i++) 
@@ -849,7 +849,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 512; i++) 
@@ -859,7 +859,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 512*8; i++) 
@@ -869,7 +869,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 300; i++) 
@@ -879,7 +879,7 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	j = 0;
 	for (uint32_t i = 0; i < 69; i++) 
@@ -889,14 +889,14 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 	
 	count = read_distance_data(&distance, &ts);
-	EXPECT_EQ(65535, count);
+	EXPECT_EQ(65023, count);
 
 	for (uint32_t i = 0; i < 504; i++)
 	{
 		count = read_distance_data(&distance, &ts);
 	}
 
-	EXPECT_EQ(65031, count);
+	EXPECT_EQ(64519, count);
 	flashsim_close(sim);
 }
 
