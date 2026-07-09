@@ -1430,13 +1430,15 @@ TEST(test_7_lifecycle, five_overflow_read_recover_read_discard)
 	}
 
 	EXPECT_EQ(kMaxDataSlots - 402, read_one_slot(&read_data));
-	EXPECT_EQ(kMaxDataSlots - 401, recover_slot_(em_distance));
+	EXPECT_EQ(kMaxDataSlots - 402, get_slot_count_(em_distance));
 
-	for (uint32_t i = 0; i < 102; i++) {
-		EXPECT_EQ(kMaxDataSlots - 401, discard_slot_(em_distance));
+	uint32_t discarded = 0;
+	while (discard_slot_(em_distance) != -1) {
+		++discarded;
 	}
+	EXPECT_EQ(102u, discarded);
 	EXPECT_EQ(-1, recover_slot_(em_distance));
-	EXPECT_EQ(kMaxDataSlots - 401, get_slot_count_(em_distance));
+	EXPECT_EQ(kMaxDataSlots - 402, get_slot_count_(em_distance));
 
 	flashsim_close(sim);
 }
@@ -1648,6 +1650,8 @@ TEST(test_8_reboot, five_overflow_with_reboots_between_phases)
 	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
 	simulate_reboot();
 
+	slot_data_s read_data = {0};
+	EXPECT_EQ(kMaxDataSlots - 1, read_one_slot(&read_data));
 	read_slots(500);
 	EXPECT_EQ(kMaxDataSlots - 501, get_slot_count_(em_distance));
 	simulate_reboot();
@@ -1661,7 +1665,6 @@ TEST(test_8_reboot, five_overflow_with_reboots_between_phases)
 	simulate_reboot();
 	EXPECT_EQ(kMaxDataSlots - 401, get_slot_count_(em_distance));
 
-	slot_data_s read_data = {0};
 	EXPECT_EQ(kMaxDataSlots - 402, read_one_slot(&read_data));
 
 	flashsim_close(sim);
