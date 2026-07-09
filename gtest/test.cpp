@@ -900,5 +900,208 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	flashsim_close(sim);
 }
 
+TEST(test_5_recover_discard, recover_one_slot)
+{
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
+	em_distance = em_driver_init_((void*)op_sector_erase,
+			  (void*)op_read,
+			  (void*)op_program,
+			  (void*)load_index,
+			  (void*)save_index,
+			DIST_MEM_SIZE,
+			EXT_MEM_SECTOR_SIZE,
+			DIST_SLOT_SIZE,
+			DIST_START_ADDR);
+	em_reset_(em_distance);
+
+	struct slot_data_s {
+		uint32_t ts;
+		uint32_t id;
+	} data = {0};
+
+	for (uint32_t i = 0; i < 3; i++) {
+		data.ts = 1000 + i;
+		data.id = i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	struct slot_data_s read_data = {0};
+	read_slot_(em_distance, (uint8_t*)&read_data);
+	EXPECT_EQ(1000u, read_data.ts);
+	EXPECT_EQ(2, get_slot_count_(em_distance));
+
+	EXPECT_EQ(3, recover_slot_(em_distance));
+	EXPECT_EQ(3, get_slot_count_(em_distance));
+
+	read_slot_(em_distance, (uint8_t*)&read_data);
+	EXPECT_EQ(1000u, read_data.ts);
+	EXPECT_EQ(2, get_slot_count_(em_distance));
+
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+
+	flashsim_close(sim);
+}
+
+TEST(test_5_recover_discard, discard_one_slot)
+{
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
+	em_distance = em_driver_init_((void*)op_sector_erase,
+			  (void*)op_read,
+			  (void*)op_program,
+			  (void*)load_index,
+			  (void*)save_index,
+			DIST_MEM_SIZE,
+			EXT_MEM_SECTOR_SIZE,
+			DIST_SLOT_SIZE,
+			DIST_START_ADDR);
+	em_reset_(em_distance);
+
+	struct slot_data_s {
+		uint32_t ts;
+		uint32_t id;
+	} data = {0};
+
+	for (uint32_t i = 0; i < 3; i++) {
+		data.ts = 2000 + i;
+		data.id = i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	struct slot_data_s read_data = {0};
+	for (uint32_t i = 0; i < 2; i++) {
+		read_slot_(em_distance, (uint8_t*)&read_data);
+	}
+	EXPECT_EQ(2001u, read_data.ts);
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+
+	EXPECT_EQ(1, discard_slot_(em_distance));
+	EXPECT_EQ(1, recover_slot_(em_distance));
+	EXPECT_EQ(2, get_slot_count_(em_distance));
+
+	read_slot_(em_distance, (uint8_t*)&read_data);
+	EXPECT_EQ(2001u, read_data.ts);
+
+	EXPECT_EQ(1, discard_slot_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(-1, discard_slot_(em_distance));
+
+	flashsim_close(sim);
+}
+
+TEST(test_5_recover_discard, recover_all_slots)
+{
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
+	em_distance = em_driver_init_((void*)op_sector_erase,
+			  (void*)op_read,
+			  (void*)op_program,
+			  (void*)load_index,
+			  (void*)save_index,
+			DIST_MEM_SIZE,
+			EXT_MEM_SECTOR_SIZE,
+			DIST_SLOT_SIZE,
+			DIST_START_ADDR);
+	em_reset_(em_distance);
+
+	struct slot_data_s {
+		uint32_t ts;
+		uint32_t id;
+	} data = {0};
+
+	for (uint32_t i = 0; i < 5; i++) {
+		data.ts = 3000 + i;
+		data.id = i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	struct slot_data_s read_data = {0};
+	for (uint32_t i = 0; i < 3; i++) {
+		read_slot_(em_distance, (uint8_t*)&read_data);
+	}
+	EXPECT_EQ(3002u, read_data.ts);
+	EXPECT_EQ(2, get_slot_count_(em_distance));
+
+	EXPECT_EQ(5, recover_all_slots_(em_distance));
+	EXPECT_EQ(5, get_slot_count_(em_distance));
+
+	for (uint32_t i = 0; i < 5; i++) {
+		EXPECT_EQ(5 - i, read_slot_(em_distance, (uint8_t*)&read_data));
+		EXPECT_EQ(3000u + i, read_data.ts);
+	}
+	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
+
+	flashsim_close(sim);
+}
+
+TEST(test_5_recover_discard, discard_all_slots)
+{
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
+	em_distance = em_driver_init_((void*)op_sector_erase,
+			  (void*)op_read,
+			  (void*)op_program,
+			  (void*)load_index,
+			  (void*)save_index,
+			DIST_MEM_SIZE,
+			EXT_MEM_SECTOR_SIZE,
+			DIST_SLOT_SIZE,
+			DIST_START_ADDR);
+	em_reset_(em_distance);
+
+	struct slot_data_s {
+		uint32_t ts;
+		uint32_t id;
+	} data = {0};
+
+	for (uint32_t i = 0; i < 5; i++) {
+		data.ts = 4000 + i;
+		data.id = i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	struct slot_data_s read_data = {0};
+	for (uint32_t i = 0; i < 3; i++) {
+		read_slot_(em_distance, (uint8_t*)&read_data);
+	}
+	EXPECT_EQ(4002u, read_data.ts);
+	EXPECT_EQ(2, get_slot_count_(em_distance));
+
+	EXPECT_EQ(0, discard_all_slots_(em_distance));
+	EXPECT_EQ(0, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(-1, discard_slot_(em_distance));
+	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
+
+	flashsim_close(sim);
+}
+
+TEST(test_5_recover_discard, no_op_without_reads)
+{
+	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
+	em_distance = em_driver_init_((void*)op_sector_erase,
+			  (void*)op_read,
+			  (void*)op_program,
+			  (void*)load_index,
+			  (void*)save_index,
+			DIST_MEM_SIZE,
+			EXT_MEM_SECTOR_SIZE,
+			DIST_SLOT_SIZE,
+			DIST_START_ADDR);
+	em_reset_(em_distance);
+
+	struct slot_data_s {
+		uint32_t ts;
+		uint32_t id;
+	} data = {3000, 0};
+
+	add_slot_(em_distance, (uint8_t*)&data);
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(-1, discard_slot_(em_distance));
+	EXPECT_EQ(0, recover_all_slots_(em_distance));
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+	EXPECT_EQ(0, discard_all_slots_(em_distance));
+	EXPECT_EQ(0, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
 
 

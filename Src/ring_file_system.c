@@ -221,9 +221,10 @@ int32_t recover_slot_(void* ext_m)
 	if ( em->slot_rindex == em->slot_rec_index ) {
 		return -1;
 	}
-	em->slot_rindex--;
-	if ( em->slot_rindex == 0 ) {
-		em->slot_rindex = em->max_slots-1;
+	if (em->slot_rindex == 0) {
+		em->slot_rindex = em->max_slots - 1;
+	} else {
+		em->slot_rindex--;
 	}
 	em->slot_count++;
 	return em->slot_count;
