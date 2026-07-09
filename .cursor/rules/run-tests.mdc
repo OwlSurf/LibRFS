@@ -1,0 +1,33 @@
+---
+description: Build and run gtest after changes to ring buffer or tests
+globs: gtest/**,Src/**,Inc/**
+alwaysApply: false
+---
+
+# Run tests after code changes
+
+After modifying `gtest/`, `Src/ring_file_system.c`, or `Inc/ring_file_system.h`:
+
+1. **Configure and build** (Release, same as CI):
+   ```powershell
+   cmake -S gtest -B gtest/build -DCMAKE_BUILD_TYPE=Release
+   cmake --build gtest/build --config Release
+   ```
+   If `cmake` is unavailable on Windows, use WSL:
+   ```bash
+   cmake -DCMAKE_BUILD_TYPE=Release -S gtest -B gtest/build && cmake --build gtest/build
+   ```
+
+2. **Run all tests with verbose failures**:
+   ```powershell
+   ctest --test-dir gtest/build -C Release --output-on-failure --rerun-failed
+   ```
+
+3. **On failure**: read the `EXPECT_*` / `ASSERT_*` output, fix the code or test expectations, rebuild, and re-run until all tests pass. Do not ask the user to paste CI logs if tests can be run locally.
+
+4. **Optional — single test**:
+   ```powershell
+   gtest/build/runtest.exe --gtest_filter=test_7_lifecycle.*
+   ```
+
+Do not consider test-related work done until `ctest` reports 100% tests passed.
