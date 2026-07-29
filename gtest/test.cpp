@@ -1746,11 +1746,19 @@ TEST(test_9_sector_erase, wrap_overwrite_requires_erase_for_bit_flip)
 
 	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
 
+	/* Skip first-pass slots; rewritten sector sits at the tail of the live window. */
+	read_slots(kMaxDataSlots - rewrite);
+
 	slot_data_s read_data = {0};
-	EXPECT_EQ(kMaxDataSlots - 1, read_one_slot(&read_data));
-	/* Oldest live slot sits one reserved sector behind the write head,
-	 * inside the just-rewritten region. */
+	EXPECT_EQ((int32_t)(rewrite - 1), read_one_slot(&read_data));
 	EXPECT_EQ(0x55555555u, read_data.ts);
+	EXPECT_EQ(100000u, read_data.id);
+
+	for (uint32_t i = 1; i < rewrite; i++) {
+		EXPECT_EQ((int32_t)(rewrite - 1 - i), read_one_slot(&read_data));
+		EXPECT_EQ(0x55555555u, read_data.ts);
+		EXPECT_EQ(100000u + i, read_data.id);
+	}
 
 	flashsim_close(sim);
 	em_driver_deinit_(em_distance);
