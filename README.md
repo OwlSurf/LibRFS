@@ -125,13 +125,31 @@ Discards a slot that has been read from the external memory.
 int32_t recover_slot(void* ext_m);
 ```
 
-Recovers a slot that has been discarded from the external memory.
+Recovers a slot that has been read but not discarded from the external memory.
+
+```c
+int32_t discard_all_slots(void *ext_m);
+```
+
+Discards all slots that have been read from the external memory.
+
+```c
+int32_t recover_all_slots(void *ext_m);
+```
+
+Recovers all slots that have been read but not discarded.
 
 ```c
 int32_t get_slot_count(void* ext_m);
 ```
 
-Returns the total number of slots in the external memory.
+Returns the total number of unread slots in the external memory.
+
+```c
+void em_driver_deinit(void* ext_m);
+```
+
+Frees the driver allocated by `em_driver_init`.
 
 ## Contributing
 
