@@ -40,6 +40,12 @@ void flashsim_sector_erase(struct flashsim *sim, int addr);
 void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len);
 void flashsim_program(struct flashsim *sim, int addr, const uint8_t *buf, int len);
 
+/** Number of sector erase operations since open/reset of the counter. */
+extern uint32_t flashsim_erase_count;
+/** Address of the last sector erase (sector-aligned). */
+extern int flashsim_last_erase_addr;
+void flashsim_reset_erase_stats(void);
+
 extern struct flashsim *sim;
 void op_sector_erase(int address);
 void op_program(int address, uint8_t *data, size_t size);

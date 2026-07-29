@@ -33,6 +33,15 @@ struct flashsim {
     uint8_t *mem;
 };
 
+uint32_t flashsim_erase_count = 0;
+int flashsim_last_erase_addr = -1;
+
+void flashsim_reset_erase_stats(void)
+{
+    flashsim_erase_count = 0;
+    flashsim_last_erase_addr = -1;
+}
+
 static uint16_t reg_windex;
 static uint16_t reg_rindex;
 static uint16_t reg_count;
@@ -61,6 +70,7 @@ struct flashsim *flashsim_open(const char *name, int size, int sector_size)
     assert(sim->mem != NULL);
     memset(sim->mem, 0xff, (size_t)size);
     flashsim_reset_index();
+    flashsim_reset_erase_stats();
 
     return sim;
 }
@@ -78,6 +88,8 @@ void flashsim_sector_erase(struct flashsim *sim, int addr)
 
     assert(sector_start >= 0 && sector_start + sim->sector_size <= sim->size);
     memset(sim->mem + sector_start, 0xff, (size_t)sim->sector_size);
+    flashsim_erase_count++;
+    flashsim_last_erase_addr = sector_start;
 }
 
 void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len)

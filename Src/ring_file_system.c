@@ -1,5 +1,5 @@
 /**
- * \file ring_file_sysyem.c
+ * \file ring_file_system.c
  * \brief This file manages the reading, writing, and erasing of data slots in external memory using a ring buffer mechanism.
  *        The function pointers allow for flexible implementation of hardware-specific memory operations.
  * \author: Roman Garanin
@@ -85,6 +85,9 @@ void *em_driver_init_(void* pp_sector_erase,
 }
 
 void em_reset_(void *ext_m) {
+    if (NULL == ext_m) {
+        return;
+    }
     struct ext_memory_s *em = (struct ext_memory_s*)ext_m;
     for (uint16_t i = 0; i < em->sectors; i++) {
         em->p_sector_erase(em->start_address + i * em->sector_size);
@@ -94,10 +97,14 @@ void em_reset_(void *ext_m) {
     em->slot_windex = 0;
     em->slot_rindex = 0;
     em->slot_rec_index = 0;
+    em->in_sector_slot_index = 0;
     em->p_save_index (&em->slot_windex, &em->slot_rindex, &em->slot_count, &em->slot_rec_index, &em->slot_rec_count);
 }
 
 void em_init_(void *ext_m) {
+    if (NULL == ext_m) {
+        return;
+    }
     struct ext_memory_s *em = (struct ext_memory_s*)ext_m;
     em->p_load_index(&em->slot_windex, &em->slot_rindex, &em->slot_count, &em->slot_rec_index, &em->slot_rec_count);
 }
@@ -112,10 +119,10 @@ void save_em_indexes_ (void *ext_m)
 }
 
 void add_slot_(void* ext_m, uint8_t *slot_ptr) {
-    struct ext_memory_s *em = (struct ext_memory_s*)ext_m;
-    if (NULL == slot_ptr) {
+    if ((NULL == ext_m) || (NULL == slot_ptr)) {
         return;
     }
+    struct ext_memory_s *em = (struct ext_memory_s*)ext_m;
 
     em->p_write(em->start_address + em->slot_windex * em->slot_size, slot_ptr, em->slot_size);
 
@@ -138,21 +145,16 @@ void add_slot_(void* ext_m, uint8_t *slot_ptr) {
         }
     }
 
-    uint16_t sector_index = em->slot_windex / em->sector_size_in_slots;
     em->slot_windex++;
-    if (sector_index == 0) {
-    	em->in_sector_slot_index = em->slot_windex;
-    } else {
-    	em->in_sector_slot_index = em->slot_windex % sector_index;
-    }
-
     if (em->slot_windex == em->max_slots) {
         em->slot_windex = 0;
     }
 
-    sector_index = em->slot_windex / em->sector_size_in_slots;
-    if (em->in_sector_slot_index == em->sector_size_in_slots) {
-    	uint32_t address = em->start_address + sector_index * em->sector_size;
+    /* Erase-ahead: after filling a sector, erase the next one before writing into it. */
+    em->in_sector_slot_index = (uint16_t)(em->slot_windex % em->sector_size_in_slots);
+    if (em->in_sector_slot_index == 0) {
+        uint32_t sector_index = em->slot_windex / em->sector_size_in_slots;
+        uint32_t address = em->start_address + sector_index * em->sector_size;
         em->p_sector_erase(address);
     }
 }
@@ -194,17 +196,13 @@ int32_t discard_slot_(void* ext_m)
 	em->slot_rec_count--;
 	uint16_t sector_index = em->slot_rec_index / em->sector_size_in_slots;
 	em->slot_rec_index++;
-	if ( sector_index == 0 ) {
-		em->in_sector_slot_index = em->slot_rec_index;
-	} else {
-		em->in_sector_slot_index = em->slot_rec_index % sector_index;
-	}
-
     if (em->slot_rec_index == em->max_slots) {
         em->slot_rec_index = 0;
     }
 
-    if (em->in_sector_slot_index == em->sector_size_in_slots) {
+    /* After discarding the last slot of a sector, erase that finished sector. */
+    em->in_sector_slot_index = (uint16_t)(em->slot_rec_index % em->sector_size_in_slots);
+    if (em->in_sector_slot_index == 0) {
         uint32_t address = em->start_address + sector_index * em->sector_size;
         em->p_sector_erase(address);
     }
@@ -250,14 +248,9 @@ int32_t discard_all_slots_(void *ext_m)
             em->slot_rec_index = 0;
         }
 
-        if (sector_index == 0) {
-            em->in_sector_slot_index = em->slot_rec_index;
-        } else {
-            em->in_sector_slot_index =
-                em->slot_rec_index % em->sector_size_in_slots;
-        }
-
-        if (em->in_sector_slot_index == em->sector_size_in_slots) {
+        em->in_sector_slot_index =
+            (uint16_t)(em->slot_rec_index % em->sector_size_in_slots);
+        if (em->in_sector_slot_index == 0) {
             uint32_t address =
                 em->start_address + sector_index * em->sector_size;
 
@@ -298,4 +291,8 @@ int32_t get_slot_count_(void* ext_m) {
     struct ext_memory_s *em = (struct ext_memory_s*)ext_m;
 
     return em->slot_count;
+}
+
+void em_driver_deinit_(void* ext_m) {
+    free(ext_m);
 }

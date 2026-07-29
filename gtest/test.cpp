@@ -1696,3 +1696,130 @@ TEST(test_8_reboot, repeated_reboot_during_incremental_overflow)
 
 	flashsim_close(sim);
 }
+
+TEST(test_9_sector_erase, erase_ahead_on_each_sector_boundary)
+{
+	init_distance_em();
+	/* em_reset_ erases every sector once. */
+	const uint32_t sectors = DIST_MEM_SIZE / EXT_MEM_SECTOR_SIZE;
+	EXPECT_EQ(sectors, flashsim_erase_count);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots, kTsBase);
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ((int)EXT_MEM_SECTOR_SIZE, flashsim_last_erase_addr);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots, kTsBase + kSectorSlots);
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ((int)(2 * EXT_MEM_SECTOR_SIZE), flashsim_last_erase_addr);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots, kTsBase + 2 * kSectorSlots);
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ((int)(3 * EXT_MEM_SECTOR_SIZE), flashsim_last_erase_addr);
+
+	flashsim_close(sim);
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+}
+
+TEST(test_9_sector_erase, wrap_overwrite_requires_erase_for_bit_flip)
+{
+	/* NOR-style programming only clears bits; rewrite with complementary
+	 * pattern fails unless erase-ahead cleared the sector. */
+	init_distance_em();
+
+	slot_data_s data = {0};
+	for (uint32_t i = 0; i < kMaxSlots; i++) {
+		data.ts = 0xAAAAAAAAu;
+		data.id = i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	const uint32_t rewrite = kSectorSlots;
+	for (uint32_t i = 0; i < rewrite; i++) {
+		data.ts = 0x55555555u;
+		data.id = 100000u + i;
+		add_slot_(em_distance, (uint8_t*)&data);
+	}
+
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(kMaxDataSlots - 1, read_one_slot(&read_data));
+	/* Oldest live slot sits one reserved sector behind the write head,
+	 * inside the just-rewritten region. */
+	EXPECT_EQ(0x55555555u, read_data.ts);
+
+	flashsim_close(sim);
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+}
+
+TEST(test_9_sector_erase, discard_erases_completed_sector)
+{
+	init_distance_em();
+	write_slots(2 * kSectorSlots, kTsBase);
+
+	read_slots(kSectorSlots);
+	flashsim_reset_erase_stats();
+
+	for (uint32_t i = 0; i < kSectorSlots; i++) {
+		EXPECT_NE(-1, discard_slot_(em_distance));
+	}
+
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ(0, flashsim_last_erase_addr);
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+
+	flashsim_close(sim);
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+}
+
+TEST(test_9_sector_erase, discard_all_erases_each_finished_sector)
+{
+	init_distance_em();
+	write_slots(2 * kSectorSlots, kTsBase);
+	read_slots(2 * kSectorSlots);
+
+	flashsim_reset_erase_stats();
+	EXPECT_EQ(0, discard_all_slots_(em_distance));
+	EXPECT_EQ(2u, flashsim_erase_count);
+	EXPECT_EQ(0, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+}
+
+TEST(test_9_null_args, api_rejects_null_handles)
+{
+	EXPECT_EQ(-1, get_slot_count_(NULL));
+	EXPECT_EQ(-1, read_slot_(NULL, NULL));
+	EXPECT_EQ(-1, discard_slot_(NULL));
+	EXPECT_EQ(-1, recover_slot_(NULL));
+	EXPECT_EQ(-1, discard_all_slots_(NULL));
+	EXPECT_EQ(-1, recover_all_slots_(NULL));
+
+	em_reset_(NULL);
+	em_init_(NULL);
+	save_em_indexes_(NULL);
+	em_driver_deinit_(NULL);
+	add_slot_(NULL, NULL);
+}
+
+TEST(test_9_wrap_erase, erase_sector0_on_full_ring_wrap)
+{
+	init_distance_em();
+	flashsim_reset_erase_stats();
+
+	write_slots(kMaxSlots, kTsBase);
+	EXPECT_EQ(kMaxSlots / kSectorSlots, flashsim_erase_count);
+	EXPECT_EQ(0, flashsim_last_erase_addr);
+
+	flashsim_close(sim);
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+}

@@ -96,6 +96,12 @@ int32_t recover_all_slots_(void *ext_m);
  * \return The number of slots, or -1 if an error occurs.
  */
 int32_t get_slot_count_(void* ext_m);
+
+/**
+ * \brief Free the external memory driver allocated by em_driver_init_.
+ * \param ext_m Pointer to the external memory structure.
+ */
+void em_driver_deinit_(void* ext_m);
 #ifdef __cplusplus
 }
 #endif
