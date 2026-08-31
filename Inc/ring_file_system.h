@@ -22,8 +22,6 @@ extern "C" {
  * \param pp_sector_erase Pointer to the sector erase function.
  * \param pp_read Pointer to the read function.
  * \param pp_write Pointer to the write function.
- * \param pp_load_index Pointer to the function loads read and write slot indexes.
- * \param pp_save_index Pointer to the function saves read and write slot indexes.
  * \param em_size Size of the external memory.
  * \param em_sector_size Size of the sector in external memory.
  * \param em_slot_size Size of the slot in external memory.
@@ -33,8 +31,6 @@ extern "C" {
 void *em_driver_init_(void* pp_sector_erase,
                      void* pp_read,
                      void* pp_write,
-					 void* pp_load_index,
-					 void* pp_save_index,
                      uint32_t em_size,
                      uint16_t em_sector_size,
                      uint16_t em_slot_size,
@@ -47,16 +43,11 @@ void *em_driver_init_(void* pp_sector_erase,
 void em_reset_(void* ext_m);
 
 /**
- * \brief Initialize the external memory.
+ * \brief Scan flash and restore indexes from the buffer sector and erased sectors.
  * \param ext_m Pointer to the external memory structure.
  */
 void em_init_(void* ext_m);
 
-/**
- * \brief Save the indexes.
- * \param ext_m Pointer to the external memory structure.
- */
-void save_em_indexes_ (void *ext_m);
 /**
  * \brief Add a slot to the external memory.
  * \param ext_m Pointer to the external memory structure.

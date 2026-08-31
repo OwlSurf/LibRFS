@@ -45,22 +45,6 @@ void op_sector_erase(int address);
 void op_program(int address, uint8_t *data, size_t size);
 void op_read(int address, uint8_t *data, size_t size);
 
-void load_index(
-                       uint16_t *windex,      /**< Pointer to write slot index.      */
-                       uint16_t *rindex,      /**< Pointer to read slot index.       */
-                       uint16_t *count,       /**< Pointer to slot counter.          */
-                       uint16_t *rec_index,   /**< Pointer to slot recovery index.   */
-                       uint16_t *rec_count    /**< Pointer to slot recovery counter. */
-                       );
-
-void save_index(
-                       uint16_t *windex,      /**< Pointer to write slot index.      */
-                       uint16_t *rindex,      /**< Pointer to read slot index.       */
-                       uint16_t *count,       /**< Pointer to slot counter.          */
-                       uint16_t *rec_index,   /**< Pointer to slot recovery index.   */
-                       uint16_t *rec_count    /**< Pointer to slot recovery counter. */
-                       );
-
 void add_distance_data(uint16_t dist, uint32_t ts);
 int32_t read_distance_data(uint16_t* distance_data, uint32_t* ts);
 
