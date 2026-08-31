@@ -11,6 +11,7 @@ The RingFileSystem is a C-based implementation designed to manage external memor
 - Configurable buffer size, sector size, and slot size.
 - Customizable functions for sector erasing, data writing, and data reading.
 - Efficient memory management with automatic sector erasing on buffer overflow.
+- **Index recovery from flash** — no external storage for read/write pointers; `em_init_()` scans the buffer sector (erased tail with `0xFF`) and read marks in the last byte of each slot.
 
 ## Getting Started
 
@@ -36,16 +37,17 @@ The RingFileSystem is a C-based implementation designed to manage external memor
 
 1. Initialize the ring file system:
   ```c
-    void* em_driver_init(void* pp_sector_erase,
-                         void* pp_read,
-                         void* pp_write,
-                         uint8_t* sector_read_buffer,
-                         uint8_t* sector_write_buffer,
-                         uint32_t em_size,
-                         uint16_t em_sector_size,
-                         uint16_t em_slot_size,
-                         uint32_t em_start_address);
+    void* em = em_driver_init_(pp_sector_erase,
+                               pp_read,
+                               pp_write,
+                               em_size,
+                               em_sector_size,
+                               em_slot_size,
+                               em_start_address);
+    em_reset_(em);   /* first boot */
+    em_init_(em);    /* after reboot — scan flash and restore indexes */
   ```
+  The last byte of each slot (`slot_size - 1`) is reserved for read status (`0xFF` = unread). Keep it at `0xFF` when writing data.
 2. Add a slot:
   ```c
     uint8_t data[slot_size] = { /* your data */ };
@@ -78,11 +80,9 @@ The RingFileSystem is a C-based implementation designed to manage external memor
 ### Functions
 
 ```c
-void* em_driver_init(void* pp_sector_erase,
+void* em_driver_init_(void* pp_sector_erase,
                      void* pp_read,
                      void* pp_write,
-                     uint8_t* sector_read_buffer,
-                     uint8_t* sector_write_buffer,
                      uint32_t em_size,
                      uint16_t em_sector_size,
                      uint16_t em_slot_size,
@@ -92,16 +92,16 @@ void* em_driver_init(void* pp_sector_erase,
 Initializes the external memory driver.
 
 ```c
-void em_reset(void *ext_m);
+void em_reset_(void *ext_m);
 ```
 
 Resets the external memory by erasing all sectors.
 
 ```c
-void em_init(void *ext_m);
+void em_init_(void *ext_m);
 ```
 
-Initializes the external memory by reading timestamps from sectors.
+Scans flash and restores indexes from the buffer sector and slot read marks.
 
 ```c
 void add_slot(void* ext_m, uint8_t *slot_ptr);

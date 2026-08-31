@@ -33,21 +33,6 @@ struct flashsim {
     uint8_t *mem;
 };
 
-static uint16_t reg_windex;
-static uint16_t reg_rindex;
-static uint16_t reg_count;
-static uint16_t reg_rec_index;
-static uint16_t reg_rec_count;
-
-static void flashsim_reset_index(void)
-{
-	reg_windex = 0;
-	reg_rindex = 0;
-	reg_count = 0;
-	reg_rec_index = 0;
-	reg_rec_count = 0;
-}
-
 struct flashsim *flashsim_open(const char *name, int size, int sector_size)
 {
     (void)name;
@@ -60,7 +45,6 @@ struct flashsim *flashsim_open(const char *name, int size, int sector_size)
     sim->mem = malloc((size_t)size);
     assert(sim->mem != NULL);
     memset(sim->mem, 0xff, (size_t)size);
-    flashsim_reset_index();
 
     return sim;
 }
@@ -159,7 +143,7 @@ void add_distance_data(uint16_t dist, uint32_t ts)
 
 	data.distance = dist;
 	data.ts = ts;
-	data.dummy = 0;
+	data.dummy = 0xFF00;
 
 	add_slot_(em_distance,  (uint8_t*)&data);
 
@@ -180,40 +164,6 @@ int32_t read_distance_data(uint16_t* distance_data, uint32_t* ts)
 		*ts = data.ts;
 	}
 	return count;
-}
-
-void load_index(
-                       uint16_t *windex,      /**< Pointer to write slot index.      */
-                       uint16_t *rindex,      /**< Pointer to read slot index.       */
-                       uint16_t *count,       /**< Pointer to slot counter.          */
-                       uint16_t *rec_index,   /**< Pointer to slot recovery index.   */
-                       uint16_t *rec_count    /**< Pointer to slot recovery counter. */
-                       )
-{
-	*windex    = reg_windex;
-	*rindex    = reg_rindex;
-	*count     = reg_count;
-	*rec_index = reg_rec_index;
-	*rec_count = reg_rec_count;
-
-	return;
-}
-
-void save_index(
-                       uint16_t *windex,      /**< Pointer to write slot index.      */
-                       uint16_t *rindex,      /**< Pointer to read slot index.       */
-                       uint16_t *count,       /**< Pointer to slot counter.          */
-                       uint16_t *rec_index,   /**< Pointer to slot recovery index.   */
-                       uint16_t *rec_count    /**< Pointer to slot recovery counter. */
-                       )
-{
-	reg_windex = *windex;
-	reg_rindex = *rindex;
-	reg_count = *count;
-	reg_rec_index = *rec_index;
-	reg_rec_count = *rec_count;
-
-	return;
 }
 
 /* vim: set ts=4 sw=4 et: */
