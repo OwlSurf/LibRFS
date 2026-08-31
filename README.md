@@ -6,6 +6,8 @@ Ring file system implementation.
 
 The RingFileSystem is a C-based implementation designed to manage external memory using a ring buffer mechanism. It allows for efficient use of memory by overwriting old data when new data is written.
 
+**Illustrated guide (RU):** [docs/ILLUSTRATED_GUIDE.ru.md](docs/ILLUSTRATED_GUIDE.ru.md) — architecture diagrams, overflow behavior, recover/discard lifecycle.
+
 ## Features
 
 - Configurable buffer size, sector size, and slot size.
