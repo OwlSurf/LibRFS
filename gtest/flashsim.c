@@ -33,6 +33,15 @@ struct flashsim {
     uint8_t *mem;
 };
 
+uint32_t flashsim_erase_count = 0;
+int flashsim_last_erase_addr = -1;
+
+void flashsim_reset_erase_stats(void)
+{
+    flashsim_erase_count = 0;
+    flashsim_last_erase_addr = -1;
+}
+
 struct flashsim *flashsim_open(const char *name, int size, int sector_size)
 {
     (void)name;
@@ -45,6 +54,7 @@ struct flashsim *flashsim_open(const char *name, int size, int sector_size)
     sim->mem = malloc((size_t)size);
     assert(sim->mem != NULL);
     memset(sim->mem, 0xff, (size_t)size);
+    flashsim_reset_erase_stats();
 
     return sim;
 }
@@ -62,6 +72,8 @@ void flashsim_sector_erase(struct flashsim *sim, int addr)
 
     assert(sector_start >= 0 && sector_start + sim->sector_size <= sim->size);
     memset(sim->mem + sector_start, 0xff, (size_t)sim->sector_size);
+    flashsim_erase_count++;
+    flashsim_last_erase_addr = sector_start;
 }
 
 void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len)
@@ -100,20 +112,19 @@ void flashsim_program(struct flashsim *sim, int addr, const uint8_t *buf, int le
 }
 
 struct flashsim *sim;
-void op_sector_erase(int address)
+void op_sector_erase(uint32_t address)
 {
-    flashsim_sector_erase(sim, address);
-    return;
+    flashsim_sector_erase(sim, (int)address);
 }
 
-void op_program(int address, uint8_t *data, size_t size)
+void op_program(uint32_t address, const uint8_t *data, uint16_t size)
 {
-    flashsim_program(sim, address, data, size);
+    flashsim_program(sim, (int)address, data, (int)size);
 }
 
-void op_read(int address, uint8_t *data, size_t size)
+void op_read(uint32_t address, uint8_t *data, uint16_t size)
 {
-    flashsim_read(sim, address, data, size);
+    flashsim_read(sim, (int)address, data, (int)size);
 }
 
 void add_distance_data(uint16_t dist, uint32_t ts)

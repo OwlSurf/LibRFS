@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include "ring_file_system.h"
 #include "flashsim.h"
@@ -15,12 +16,25 @@ constexpr uint32_t kMaxDataSlots = kMaxSlots - (EXT_MEM_SECTOR_SIZE / DIST_SLOT_
 constexpr uint32_t kSectorSlots = EXT_MEM_SECTOR_SIZE / DIST_SLOT_SIZE;
 constexpr uint32_t kTsBase = 3000000u;
 
+void close_sim(void)
+{
+	em_driver_deinit_(em_distance);
+	em_distance = NULL;
+	em_driver_deinit_(em_track);
+	em_track = NULL;
+	if (sim != NULL) {
+		close_sim();
+		sim = NULL;
+	}
+}
+
 void init_distance_em(void)
 {
+	close_sim();
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -79,9 +93,9 @@ TEST(test_pos_1, lots_read_2_slots)
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
 
 
-	em_track = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_track = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  TRACK_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  TRACK_SLOT_SIZE,
@@ -121,7 +135,7 @@ TEST(test_pos_1, lots_read_2_slots)
 	EXPECT_FLOAT_EQ(37.5, data_for_read.lon);
 	EXPECT_FLOAT_EQ(55.6, data_for_read.lat);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 
@@ -130,9 +144,9 @@ TEST(test_pos_1, lots_read_2_slots)
 TEST(test_1, lots_read_2_slots) 
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -155,7 +169,7 @@ TEST(test_1, lots_read_2_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364137 + 1, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 
@@ -163,9 +177,9 @@ TEST(test_1, case_write_200_slots_read_100_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
 
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -188,15 +202,15 @@ TEST(test_1, case_write_200_slots_read_100_slots)
 	}
 	EXPECT_EQ(100, count);
 	EXPECT_EQ(1687364138 + 99, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_1, case_write_150_slots_read_150_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -219,16 +233,16 @@ TEST(test_1, case_write_150_slots_read_150_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364132 + 149, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 
 TEST(test_1, case_write_511_slots_read_511_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -251,15 +265,15 @@ TEST(test_1, case_write_511_slots_read_511_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364135 + 510, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_1, case_write_512_slots_read_512_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -283,15 +297,15 @@ TEST(test_1, case_write_512_slots_read_512_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364130 + 511, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_1, case_write_512_slots_read_333_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -314,7 +328,7 @@ TEST(test_1, case_write_512_slots_read_333_slots)
 	}
 	EXPECT_EQ(179, count);
 	EXPECT_EQ(1687364130 + 332, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 
@@ -322,9 +336,9 @@ TEST(test_1, case_write_512_slots_read_333_slots)
 TEST(test_1, case_write_520_slots_read_520_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -347,16 +361,16 @@ TEST(test_1, case_write_520_slots_read_520_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364123 + 519, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_1, case_write_4096_slots_read_4096_slots)
 {
 	sim = flashsim_open("example.sim", 256*4096, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -380,16 +394,16 @@ TEST(test_1, case_write_4096_slots_read_4096_slots)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364147 + 4095, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_1, case_write_4097_slots_read_4097)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -413,7 +427,7 @@ TEST(test_1, case_write_4097_slots_read_4097)
 	}
 	EXPECT_EQ(0, count);
 	EXPECT_EQ(1687364157 + 4096, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
@@ -421,9 +435,9 @@ TEST(test_1, case_write_4097_slots_read_4097)
 TEST(test_2_overwrite, case_write_69632_slots_read_1_slot )
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -443,16 +457,16 @@ TEST(test_2_overwrite, case_write_69632_slots_read_1_slot )
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364197 + 4608, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_69633_slots_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -473,16 +487,16 @@ TEST(test_2_overwrite, case_write_69633_slots_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364167 + 4609, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_65537_slots_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -503,16 +517,16 @@ TEST(test_2_overwrite, case_write_65537_slots_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364167 + 513, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_69636_slots_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -533,16 +547,16 @@ TEST(test_2_overwrite, case_write_69636_slots_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364117 + 4612, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -563,7 +577,7 @@ TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364107 + 4613, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
@@ -571,9 +585,9 @@ TEST(test_2_overwrite, case_write_69637_slots_read_1_slot)
 TEST(test_2_overwrite, case_write_69638_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -594,16 +608,16 @@ TEST(test_2_overwrite, case_write_69638_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364237 + 4614, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_71536_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -625,16 +639,16 @@ TEST(test_2_overwrite, case_write_71536_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364437 + 6512, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_2_overwrite, case_write_71556_slots_read_1_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -654,16 +668,16 @@ TEST(test_2_overwrite, case_write_71556_slots_read_1_slot)
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(65023, count);
 	EXPECT_EQ(1687364737 + 6532, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_3_overwrite_buffer, case_write_200_read_50_write_320_read_1)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -696,16 +710,16 @@ TEST(test_3_overwrite_buffer, case_write_200_read_50_write_320_read_1)
 		count = read_distance_data(&distance, &ts);
 
 	EXPECT_EQ(1687364037 + 50, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_3_overwrite_buffer, case_write_812_read_100_write_612_read_1)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -738,16 +752,16 @@ TEST(test_3_overwrite_buffer, case_write_812_read_100_write_612_read_1)
 		count = read_distance_data(&distance, &ts);
 
 	EXPECT_EQ(1687368137 + 612, ts);
-	flashsim_close(sim);
+	close_sim();
 
 }
 
 TEST(test_3_overwrite_buffer, case_write_511_read_1_write_2_read_1)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -776,15 +790,15 @@ TEST(test_3_overwrite_buffer, case_write_511_read_1_write_2_read_1)
 	
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(1687368137 + 1, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_3_overwrite_read_overwrite, case_write_511_read_1_write_2_read_1)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -817,16 +831,16 @@ TEST(test_3_overwrite_read_overwrite, case_write_511_read_1_write_2_read_1)
 
 	count = read_distance_data(&distance, &ts);
 	EXPECT_EQ(1687368137 + 1024, ts);
-	flashsim_close(sim);
+	close_sim();
 }
 
 
 TEST(test_4_count, case_write_some_slote_read_one)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-        em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+        em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -922,15 +936,15 @@ TEST(test_4_count, case_write_some_slote_read_one)
 	}
 
 	EXPECT_EQ(64519, count);
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_5_recover_discard, recover_one_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -961,15 +975,15 @@ TEST(test_5_recover_discard, recover_one_slot)
 	EXPECT_EQ(1000u, read_data.ts);
 	EXPECT_EQ(2, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_5_recover_discard, discard_one_slot)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -1005,15 +1019,15 @@ TEST(test_5_recover_discard, discard_one_slot)
 	EXPECT_EQ(-1, recover_slot_(em_distance));
 	EXPECT_EQ(-1, discard_slot_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_5_recover_discard, recover_all_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -1047,15 +1061,15 @@ TEST(test_5_recover_discard, recover_all_slots)
 	}
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_5_recover_discard, discard_all_slots)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -1086,15 +1100,15 @@ TEST(test_5_recover_discard, discard_all_slots)
 	EXPECT_EQ(-1, discard_slot_(em_distance));
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_5_recover_discard, no_op_without_reads)
 {
 	sim = flashsim_open("example.sim", FLASHSIM_SIZE, 4096);
-	em_distance = em_driver_init_((void*)op_sector_erase,
-			  (void*)op_read,
-			  (void*)op_program,
+	em_distance = em_driver_init_(op_sector_erase,
+			  op_read,
+			  op_program,
 			  DIST_MEM_SIZE,
 			  EXT_MEM_SECTOR_SIZE,
 			  DIST_SLOT_SIZE,
@@ -1115,7 +1129,7 @@ TEST(test_5_recover_discard, no_op_without_reads)
 	EXPECT_EQ(0, discard_all_slots_(em_distance));
 	EXPECT_EQ(0, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_discard, discard_all_after_overflow_read)
@@ -1138,7 +1152,7 @@ TEST(test_6_overflow_discard, discard_all_after_overflow_read)
 	slot_data_s read_data = {0};
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_discard, discard_blocks_recover_and_reads_next_unread)
@@ -1162,7 +1176,7 @@ TEST(test_6_overflow_discard, discard_blocks_recover_and_reads_next_unread)
 		  read_slot_(em_distance, (uint8_t*)&read_data));
 	EXPECT_EQ(oldest_ts(total_writes) + read_count, read_data.ts);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_recover, recover_single_at_overflow_boundary)
@@ -1182,7 +1196,7 @@ TEST(test_6_overflow_recover, recover_single_at_overflow_boundary)
 	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
 	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_recover, recover_all_after_overflow_read)
@@ -1208,7 +1222,7 @@ TEST(test_6_overflow_recover, recover_all_after_overflow_read)
 	}
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_recover, recover_at_sector_boundary)
@@ -1227,7 +1241,7 @@ TEST(test_6_overflow_recover, recover_at_sector_boundary)
 	EXPECT_EQ(kMaxDataSlots - 1, read_slot_(em_distance, (uint8_t*)&read_data));
 	EXPECT_EQ(oldest_ts(total_writes), read_data.ts);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_recover, recover_all_after_full_index_wrap)
@@ -1251,7 +1265,7 @@ TEST(test_6_overflow_recover, recover_all_after_full_index_wrap)
 	}
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_combo, recover_discard_interleaved)
@@ -1288,7 +1302,7 @@ TEST(test_6_overflow_combo, recover_discard_interleaved)
 		  read_slot_(em_distance, (uint8_t*)&read_data));
 	EXPECT_EQ(kTsBase + oldest + 300, read_data.ts);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_combo, recover_all_then_discard_all)
@@ -1310,7 +1324,7 @@ TEST(test_6_overflow_combo, recover_all_then_discard_all)
 	slot_data_s read_data = {0};
 	EXPECT_EQ(-1, read_slot_(em_distance, (uint8_t*)&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_6_overflow_combo, write_after_discard_all_and_reset)
@@ -1339,7 +1353,7 @@ TEST(test_6_overflow_combo, write_after_discard_all_and_reset)
 		EXPECT_EQ(rewrite_ts + i, read_data.ts);
 	}
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, five_overflow_read_recover_read_discard)
@@ -1381,7 +1395,7 @@ TEST(test_7_lifecycle, five_overflow_read_recover_read_discard)
 	EXPECT_EQ(-1, recover_slot_(em_distance));
 	EXPECT_EQ(kMaxDataSlots - 402, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, incremental_five_sector_overflow_batches)
@@ -1410,7 +1424,7 @@ TEST(test_7_lifecycle, incremental_five_sector_overflow_batches)
 	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
 	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, workday_read_discard_cycles_then_recover)
@@ -1438,7 +1452,7 @@ TEST(test_7_lifecycle, workday_read_discard_cycles_then_recover)
 	EXPECT_EQ(kMaxDataSlots - 1, read_one_slot(&read_data));
 	EXPECT_EQ(kTsBase + 1200, read_data.ts);
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, restore_indexes_after_em_init)
@@ -1458,7 +1472,7 @@ TEST(test_7_lifecycle, restore_indexes_after_em_init)
 	write_slots(50, kTsBase + 500);
 	EXPECT_EQ(429, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, overflow_burst_read_discard_all)
@@ -1483,7 +1497,7 @@ TEST(test_7_lifecycle, overflow_burst_read_discard_all)
 	slot_data_s read_data = {0};
 	EXPECT_EQ(-1, read_one_slot(&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_7_lifecycle, repeated_overflow_sessions_with_reset)
@@ -1510,7 +1524,7 @@ TEST(test_7_lifecycle, repeated_overflow_sessions_with_reset)
 		EXPECT_EQ(0, discard_all_slots_(em_distance));
 		EXPECT_EQ(0, get_slot_count_(em_distance));
 
-		flashsim_close(sim);
+		close_sim();
 	}
 }
 
@@ -1538,7 +1552,7 @@ TEST(test_8_reboot, three_reboots_during_overflow_writes)
 	write_slots(kSectorSlots, ts);
 	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_8_reboot, overflow_read_reboot_recover_discard)
@@ -1568,7 +1582,7 @@ TEST(test_8_reboot, overflow_read_reboot_recover_discard)
 	EXPECT_EQ(-1, recover_slot_(em_distance));
 	EXPECT_EQ(kMaxDataSlots - 500, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_8_reboot, five_overflow_with_reboots_between_phases)
@@ -1608,7 +1622,7 @@ TEST(test_8_reboot, five_overflow_with_reboots_between_phases)
 
 	EXPECT_EQ(kMaxDataSlots - 1502, read_one_slot(&read_data));
 
-	flashsim_close(sim);
+	close_sim();
 }
 
 TEST(test_8_reboot, repeated_reboot_during_incremental_overflow)
@@ -1635,5 +1649,147 @@ TEST(test_8_reboot, repeated_reboot_during_incremental_overflow)
 	simulate_reboot();
 	EXPECT_EQ(kMaxDataSlots - 400, get_slot_count_(em_distance));
 
-	flashsim_close(sim);
+	close_sim();
+}
+
+TEST(test_9_sector_erase, erase_ahead_on_each_sector_boundary)
+{
+	init_distance_em();
+	const uint32_t sectors = DIST_MEM_SIZE / EXT_MEM_SECTOR_SIZE;
+	EXPECT_EQ(sectors, flashsim_erase_count);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots, kTsBase);
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ((int)EXT_MEM_SECTOR_SIZE, flashsim_last_erase_addr);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots, kTsBase + kSectorSlots);
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ((int)(2u * EXT_MEM_SECTOR_SIZE), flashsim_last_erase_addr);
+
+	flashsim_reset_erase_stats();
+	write_slots(kSectorSlots * 3, kTsBase + 2 * kSectorSlots);
+	EXPECT_EQ(3u, flashsim_erase_count);
+
+	close_sim();
+}
+
+TEST(test_9_sector_erase, wrap_overwrite_uses_erased_sector)
+{
+	init_distance_em();
+	uint8_t a5[DIST_SLOT_SIZE];
+	uint8_t za[DIST_SLOT_SIZE];
+	memset(a5, 0xA5, sizeof(a5));
+	memset(za, 0x5A, sizeof(za));
+
+	for (uint32_t i = 0; i < kMaxDataSlots; i++) {
+		add_slot_(em_distance, a5);
+	}
+	for (uint32_t i = 0; i < kSectorSlots; i++) {
+		add_slot_(em_distance, a5);
+	}
+
+	flashsim_reset_erase_stats();
+	for (uint32_t i = 0; i < kSectorSlots; i++) {
+		add_slot_(em_distance, za);
+	}
+	EXPECT_GE(flashsim_erase_count, 1u);
+
+	/* NOR AND would yield 0x00 if sector 0 was not erased before wrap. */
+	uint8_t raw[DIST_SLOT_SIZE] = {0};
+	flashsim_read(sim, DIST_START_ADDR, raw, DIST_SLOT_SIZE);
+	EXPECT_EQ(0x5A, raw[0]);
+	EXPECT_EQ(0x5A, raw[1]);
+	EXPECT_EQ(0x5A, raw[DIST_SLOT_SIZE - 2]);
+	EXPECT_EQ(0xFF, raw[DIST_SLOT_SIZE - 1]);
+
+	close_sim();
+}
+
+TEST(test_9_sector_erase, discard_erases_completed_sector)
+{
+	init_distance_em();
+	write_slots(kSectorSlots + 8, kTsBase);
+	read_slots(kSectorSlots);
+
+	flashsim_reset_erase_stats();
+	for (uint32_t i = 0; i < kSectorSlots; i++) {
+		EXPECT_NE(-1, discard_slot_(em_distance));
+	}
+	EXPECT_EQ(1u, flashsim_erase_count);
+	EXPECT_EQ(0, flashsim_last_erase_addr);
+
+	close_sim();
+}
+
+TEST(test_9_api, null_and_invalid_init)
+{
+	EXPECT_EQ(-1, get_slot_count_(NULL));
+	EXPECT_EQ(-1, get_recover_count_(NULL));
+	EXPECT_EQ(-1, read_slot_(NULL, NULL));
+	EXPECT_EQ(-1, discard_slot_(NULL));
+	EXPECT_EQ(-1, recover_slot_(NULL));
+	em_reset_(NULL);
+	em_init_(NULL);
+	add_slot_(NULL, NULL);
+	em_driver_deinit_(NULL);
+
+	EXPECT_EQ(nullptr, em_driver_init_(NULL, op_read, op_program,
+					   DIST_MEM_SIZE, EXT_MEM_SECTOR_SIZE,
+					   DIST_SLOT_SIZE, DIST_START_ADDR));
+	EXPECT_EQ(nullptr, em_driver_init_(op_sector_erase, op_read, op_program,
+					   DIST_MEM_SIZE, EXT_MEM_SECTOR_SIZE,
+					   1, DIST_START_ADDR));
+	EXPECT_EQ(nullptr, em_driver_init_(op_sector_erase, op_read, op_program,
+					   DIST_MEM_SIZE, EXT_MEM_SECTOR_SIZE,
+					   7, DIST_START_ADDR));
+}
+
+TEST(test_9_api, recover_count_and_payload_without_sequence)
+{
+	init_distance_em();
+	uint8_t payload[DIST_SLOT_SIZE];
+
+	for (uint32_t i = 0; i < 20; i++) {
+		memset(payload, (uint8_t)(0x80u - i), sizeof(payload));
+		add_slot_(em_distance, payload);
+	}
+	EXPECT_EQ(0, get_recover_count_(em_distance));
+	read_slots(5);
+	EXPECT_EQ(5, get_recover_count_(em_distance));
+	EXPECT_EQ(15, get_slot_count_(em_distance));
+
+	simulate_reboot();
+	EXPECT_EQ(15, get_slot_count_(em_distance));
+	EXPECT_EQ(5, get_recover_count_(em_distance));
+	EXPECT_EQ(20, recover_all_slots_(em_distance));
+
+	uint8_t out[DIST_SLOT_SIZE] = {0};
+	EXPECT_EQ(19, read_slot_(em_distance, out));
+	EXPECT_EQ(0x80, out[0]);
+
+	close_sim();
+}
+
+TEST(test_9_reboot, discard_then_reboot_then_write)
+{
+	init_distance_em();
+	write_slots(kMaxDataSlots + kSectorSlots, kTsBase);
+	read_slots(kSectorSlots);
+	for (uint32_t i = 0; i < kSectorSlots; i++) {
+		discard_slot_(em_distance);
+	}
+	simulate_reboot();
+	EXPECT_EQ((int32_t)(kMaxDataSlots - kSectorSlots), get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+
+	write_slots(8, kTsBase + 100000u);
+	EXPECT_EQ((int32_t)(kMaxDataSlots - kSectorSlots + 8), get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_NE(-1, read_one_slot(&read_data));
+	EXPECT_EQ(oldest_ts(kMaxDataSlots + kSectorSlots) + kSectorSlots, read_data.ts);
+
+	close_sim();
 }

@@ -103,4 +103,5 @@ GTAGS
 
 #make
 build/
+gtest/build/
 generated_codes/

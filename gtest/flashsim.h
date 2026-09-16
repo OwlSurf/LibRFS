@@ -16,13 +16,13 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-#define DIST_MEM_SIZE 524288 // (512kB)
+#define DIST_MEM_SIZE 524288 /* 512 KiB */
 #define DIST_START_ADDR 0
 #define DIST_SLOT_SIZE 8
 #define EXT_MEM_SECTOR_SIZE 4096
-#define TRACK_MEM_SIZE 0x10000   //(1024kB)
-#define TRACK_SLOT_SIZE 16     //(128B Bytes)
-#define TRACK_START_ADDR 0x80000 //()
+#define TRACK_MEM_SIZE 0x10000 /* 64 KiB */
+#define TRACK_SLOT_SIZE 16
+#define TRACK_START_ADDR 0x80000
 
 #define FLASHSIM_SIZE (TRACK_START_ADDR + TRACK_MEM_SIZE)
 extern void* em_distance;
@@ -40,10 +40,14 @@ void flashsim_sector_erase(struct flashsim *sim, int addr);
 void flashsim_read(struct flashsim *sim, int addr, uint8_t *buf, int len);
 void flashsim_program(struct flashsim *sim, int addr, const uint8_t *buf, int len);
 
+extern uint32_t flashsim_erase_count;
+extern int flashsim_last_erase_addr;
+void flashsim_reset_erase_stats(void);
+
 extern struct flashsim *sim;
-void op_sector_erase(int address);
-void op_program(int address, uint8_t *data, size_t size);
-void op_read(int address, uint8_t *data, size_t size);
+void op_sector_erase(uint32_t address);
+void op_program(uint32_t address, const uint8_t *data, uint16_t size);
+void op_read(uint32_t address, uint8_t *data, uint16_t size);
 
 void add_distance_data(uint16_t dist, uint32_t ts);
 int32_t read_distance_data(uint16_t* distance_data, uint32_t* ts);

@@ -1,150 +1,118 @@
-# RingFileSystem
+# LibRFS (Ring File System)
 
-Ring file system implementation.
+C library that stores a FIFO of fixed-size records on NOR flash. Old data is overwritten when the ring is full. Indexes are recovered from flash after reboot — no external NVRAM.
 
-## Overview
-
-The RingFileSystem is a C-based implementation designed to manage external memory using a ring buffer mechanism. It allows for efficient use of memory by overwriting old data when new data is written.
+**Illustrated guide (RU):** [docs/ILLUSTRATED_GUIDE.ru.md](docs/ILLUSTRATED_GUIDE.ru.md)
 
 ## Features
 
-- Configurable buffer size, sector size, and slot size.
-- Customizable functions for sector erasing, data writing, and data reading.
-- Efficient memory management with automatic sector erasing on buffer overflow.
-- **Index recovery from flash** — no external storage for read/write pointers; `em_init_()` scans the buffer sector (erased tail with `0xFF`) and read marks in the last byte of each slot.
+- Configurable region size, sector size, and slot size
+- Caller-supplied erase / read / write callbacks
+- Erase-ahead of the next sector after a sector is filled
+- Discard erases a sector after its last slot is confirmed
+- `em_init_()` restores W / R / REC from empty-slot geometry and the status byte
+- Last byte of each slot is reserved (`0xFF` unread, `0x00` read)
 
-## Getting Started
+## Clone
 
-### Prerequisites
-
-- A C compiler (e.g., GCC)
-- Necessary permissions to access and modify external memory.
-
-
-
-### Installation
-
-1. Clone the repository:
-  ```sh
-    git clone https://github.com/Ethalon-emb/RingFileSystem.git
-    cd RingFileSystem
-  ```
-2. Include the `ring_file_system.h` and `ring_file_system.c` files in your project.
-
-
-
-### Usage
-
-1. Initialize the ring file system:
-  ```c
-    void* em = em_driver_init_(pp_sector_erase,
-                               pp_read,
-                               pp_write,
-                               em_size,
-                               em_sector_size,
-                               em_slot_size,
-                               em_start_address);
-    em_reset_(em);   /* first boot */
-    em_init_(em);    /* after reboot — scan flash and restore indexes */
-  ```
-  The last byte of each slot (`slot_size - 1`) is reserved for read status (`0xFF` = unread). Keep it at `0xFF` when writing data.
-2. Add a slot:
-  ```c
-    uint8_t data[slot_size] = { /* your data */ };
-    add_slot(em, data);
-  ```
-3. Read a slot:
-  ```c
-    uint8_t buffer[slot_size];
-    read_slot(em, buffer);
-  ```
-4. Discard a slot:
-  ```c
-    discard_slot(em);
-  ```
-5. Recover a slot:
-  ```c
-    recover_slot(em);
-  ```
-6. Reset the memory:
-  ```c
-    em_reset(em);
-  ```
-
-
-
-## API Reference
-
-
-
-### Functions
-
-```c
-void* em_driver_init_(void* pp_sector_erase,
-                     void* pp_read,
-                     void* pp_write,
-                     uint32_t em_size,
-                     uint16_t em_sector_size,
-                     uint16_t em_slot_size,
-                     uint32_t em_start_address);
+```sh
+git clone https://github.com/OwlSurf/LibRFS.git
+cd LibRFS
 ```
 
-Initializes the external memory driver.
+Use `Inc/ring_file_system.h` and `Src/ring_file_system.c` in your firmware project.
+
+## Usage
 
 ```c
+void *em = em_driver_init_(pp_sector_erase,
+                           pp_read,
+                           pp_write,
+                           em_size,
+                           em_sector_size,
+                           em_slot_size,
+                           em_start_address);
+if (em == NULL) {
+    /* invalid geometry or OOM */
+}
+
+em_reset_(em);   /* first boot: erase all sectors */
+em_init_(em);    /* after reboot: scan flash and restore indexes */
+
+uint8_t data[slot_size] = { /* payload in bytes [0, slot_size - 2] */ };
+add_slot_(em, data);         /* programs slot_size - 1 bytes; status stays 0xFF */
+
+uint8_t buffer[slot_size];
+read_slot_(em, buffer);      /* marks status 0x00 */
+
+discard_slot_(em);
+recover_slot_(em);
+discard_all_slots_(em);
+recover_all_slots_(em);
+get_slot_count_(em);
+get_recover_count_(em);
+
+em_driver_deinit_(em);
+```
+
+## Contracts
+
+| Topic | Rule |
+|-------|------|
+| Slot layout | Bytes `[0 .. slot_size-2]` are payload. Byte `slot_size-1` is read status. |
+| Geometry | `slot_size >= 2`, sector size multiple of slot size, region multiple of sector, at least two sectors. |
+| Erase-ahead | After the last slot of a sector is written, the **next** sector is erased. |
+| Discard erase | After the last slot of a sector is discarded, **that** sector is erased. |
+| Index types | Write/read/recover indexes are `uint32_t` (supports more than 65536 slots). |
+| Recovery source | Empty ↔ data transitions and status bytes. Payload is not interpreted. |
+| Recover vs reboot | `recover_slot_` rewinds R in RAM over read-but-not-discarded slots. It cannot program status back to `0xFF` (NOR). After reboot, those slots stay marked read unless discarded/erased. `recover_all_` *before* reboot then `em_init_` restores the flash marks, not the RAM rewind. |
+| Thread safety | None — serialize access externally. |
+| Flash errors | Callbacks are `void`; the library does not retry failed erase/program. |
+
+## API
+
+```c
+typedef void (*em_sector_erase_fn)(uint32_t address);
+typedef void (*em_read_fn)(uint32_t address, uint8_t *data, uint16_t length);
+typedef void (*em_write_fn)(uint32_t address, const uint8_t *data, uint16_t length);
+
+void *em_driver_init_(em_sector_erase_fn erase,
+                      em_read_fn read,
+                      em_write_fn write,
+                      uint32_t em_size,
+                      uint16_t em_sector_size,
+                      uint16_t em_slot_size,
+                      uint32_t em_start_address);
+
 void em_reset_(void *ext_m);
-```
-
-Resets the external memory by erasing all sectors.
-
-```c
 void em_init_(void *ext_m);
+void em_driver_deinit_(void *ext_m);
+void add_slot_(void *ext_m, const uint8_t *slot_ptr);
+int32_t read_slot_(void *ext_m, uint8_t *out_buffer);
+int32_t discard_slot_(void *ext_m);
+int32_t recover_slot_(void *ext_m);
+int32_t discard_all_slots_(void *ext_m);
+int32_t recover_all_slots_(void *ext_m);
+int32_t get_slot_count_(void *ext_m);
+int32_t get_recover_count_(void *ext_m);
 ```
 
-Scans flash and restores indexes from the buffer sector and slot read marks.
+`get_slot_count_` is the unread queue (R → W). `get_recover_count_` is the recover window (REC → R).
 
-```c
-void add_slot(void* ext_m, uint8_t *slot_ptr);
+## Tests
+
+```sh
+cmake -DCMAKE_BUILD_TYPE=Release -S gtest -B gtest/build
+cmake --build gtest/build
+ctest --test-dir gtest/build -C Release --output-on-failure --rerun-failed
 ```
 
-Adds a new slot to the external memory.
-
-```c
-int32_t read_slot(void* ext_m, uint8_t* out_buffer);
-```
-
-Reads a slot from the external memory into the provided buffer.
-
-```c
-int32_t discard_slot(void* ext_m);
-```
-
-Discards a slot that has been read from the external memory.
-
-```c
-int32_t recover_slot(void* ext_m);
-```
-
-Recovers a slot that has been discarded from the external memory.
-
-```c
-int32_t get_slot_count(void* ext_m);
-```
-
-Returns the total number of slots in the external memory.
-
-## Contributing
-
-Contributions are welcome! Please submit a pull request with your improvements or bug fixes.
+Or `./build_test.sh`.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
 
-## Acknowledgements
+## Author
 
-- Author: Roman Garanin
-
-Feel free to customize this README further to better fit your project's needs.
-
-For more details on recent commits, visit [recent commits](https://github.com/Ethalon-emb/RingFileSystem/commits?per_page=5&sort=updated&order=desc).
+Roman Garanin
