@@ -1,150 +1,121 @@
 # RingFileSystem
 
-Ring file system implementation.
+A small C library for a **circular event log on NOR flash**.
 
-## Overview
+It is not a POSIX filesystem. It is a ring of fixed-size slots with:
 
-The RingFileSystem is a C-based implementation designed to manage external memory using a ring buffer mechanism. It allows for efficient use of memory by overwriting old data when new data is written.
+- sector erase before overwrite
+- unread / read marks in the last byte of each slot
+- **index recovery from flash after reboot** — no EEPROM copy of read/write pointers
 
-## Features
+If you log telemetry, GPS points, or fault records on SPI NOR and the MCU can reset at any time, that is the problem this code is written for.
 
-- Configurable buffer size, sector size, and slot size.
-- Customizable functions for sector erasing, data writing, and data reading.
-- Efficient memory management with automatic sector erasing on buffer overflow.
-- **Index recovery from flash** — no external storage for read/write pointers; `em_init_()` scans the buffer sector (erased tail with `0xFF`) and read marks in the last byte of each slot.
+## Why it is interesting
 
-## Getting Started
+Most “ring buffer in flash” sketches keep `head`/`tail` in RAM (lost on reset) or in a separate metadata sector (wear + extra failure mode).
 
-### Prerequisites
+This implementation treats flash itself as the source of truth:
 
-- A C compiler (e.g., GCC)
-- Necessary permissions to access and modify external memory.
+1. **Write pointer** — find the *buffer sector* (erased `0xFF` tail / first empty slot after data).
+2. **Read pointer** — walk slots and look at the last-byte mark (`0xFF` unread, `0x00` read).
+3. **Overflow** — one sector is kept as a spare so the ring can erase ahead of the writer. After wrap, recovery also uses a **monotonic `uint32` in the first four bytes** of the slot to find the sequence break.
 
-
-
-### Installation
-
-1. Clone the repository:
-  ```sh
-    git clone https://github.com/Ethalon-emb/RingFileSystem.git
-    cd RingFileSystem
-  ```
-2. Include the `ring_file_system.h` and `ring_file_system.c` files in your project.
-
-
-
-### Usage
-
-1. Initialize the ring file system:
-  ```c
-    void* em = em_driver_init_(pp_sector_erase,
-                               pp_read,
-                               pp_write,
-                               em_size,
-                               em_sector_size,
-                               em_slot_size,
-                               em_start_address);
-    em_reset_(em);   /* first boot */
-    em_init_(em);    /* after reboot — scan flash and restore indexes */
-  ```
-  The last byte of each slot (`slot_size - 1`) is reserved for read status (`0xFF` = unread). Keep it at `0xFF` when writing data.
-2. Add a slot:
-  ```c
-    uint8_t data[slot_size] = { /* your data */ };
-    add_slot(em, data);
-  ```
-3. Read a slot:
-  ```c
-    uint8_t buffer[slot_size];
-    read_slot(em, buffer);
-  ```
-4. Discard a slot:
-  ```c
-    discard_slot(em);
-  ```
-5. Recover a slot:
-  ```c
-    recover_slot(em);
-  ```
-6. Reset the memory:
-  ```c
-    em_reset(em);
-  ```
-
-
-
-## API Reference
-
-
-
-### Functions
-
-```c
-void* em_driver_init_(void* pp_sector_erase,
-                     void* pp_read,
-                     void* pp_write,
-                     uint32_t em_size,
-                     uint16_t em_sector_size,
-                     uint16_t em_slot_size,
-                     uint32_t em_start_address);
+```
+  oldest data          unread / read marks           spare (erased)     write
+ |====================|=======|.....................|#################|  ->
+  rec_index            rindex                        buffer sector      windex
 ```
 
-Initializes the external memory driver.
+That recovery path (including overflow + reboot) is covered by the GoogleTest suite under `gtest/`.
+
+## Constraints (read before integrating)
+
+| Rule | Why |
+|------|-----|
+| `sector_size % slot_size == 0` | Slots are packed into erase sectors |
+| Last byte of every slot is reserved | Status: `0xFF` unread, programmed to `0x00` after `read_slot_` |
+| Caller leaves that byte `0xFF` on write | `add_slot_` programs the unread mark |
+| Payload should start with a monotonic `uint32` | Needed to reconstruct indexes when the ring is full |
+| One sector is never used for live data | `max_data_slots = total_slots - slots_per_sector` |
+| Backend must behave like NOR | Erase → `0xFF`; program only clears bits |
+| `em_driver_init_` uses `malloc` | Pair with `free(em)` when the handle is dropped |
+
+Flash callbacks you supply:
 
 ```c
-void em_reset_(void *ext_m);
+void erase_sector(uint32_t address);
+void read(uint32_t address, uint8_t *data, uint16_t length);
+void write(uint32_t address, const uint8_t *data, uint16_t length);
 ```
 
-Resets the external memory by erasing all sectors.
+## Quick start on a PC
+
+You do not need a board to try it:
+
+```sh
+git clone https://github.com/OwlSurf/LibRFS.git
+cd LibRFS
+cmake -S . -B build
+cmake --build build
+./build/host_demo
+```
+
+The demo writes records, calls `em_init_()` as if the MCU rebooted, then fills the ring until overflow.
+
+Full test suite (GoogleTest):
+
+```sh
+cmake -S gtest -B gtest/build -DCMAKE_BUILD_TYPE=Release
+cmake --build gtest/build --config Release
+ctest --test-dir gtest/build -C Release --output-on-failure
+```
+
+## Usage on a device
 
 ```c
-void em_init_(void *ext_m);
+void *em = em_driver_init_(erase_cb, read_cb, write_cb,
+                           flash_bytes, sector_bytes, slot_bytes, start_addr);
+
+em_reset_(em);   /* factory / first boot: erase the region */
+em_init_(em);    /* every later boot: scan flash, restore indexes */
+
+uint8_t slot[SLOT_SIZE];
+memset(slot, 0xFF, sizeof slot);
+/* fill payload; keep slot[SLOT_SIZE - 1] == 0xFF */
+add_slot_(em, slot);
+
+uint8_t out[SLOT_SIZE];
+if (read_slot_(em, out) >= 0) {
+    /* process out */
+    discard_slot_(em);   /* or recover_slot_() if processing failed */
+}
 ```
 
-Scans flash and restores indexes from the buffer sector and slot read marks.
+Typical lifecycle:
 
-```c
-void add_slot(void* ext_m, uint8_t *slot_ptr);
+- `add_slot_` — append (erases the next sector when the current one is full)
+- `read_slot_` — copy next unread slot and mark it read
+- `discard_slot_` — drop a slot that was already read (advances recovery index; may erase)
+- `recover_slot_` — unread the last read slot (processing failed, try again after reboot)
+- `get_slot_count_` — unread slots still waiting
+
+## Layout
+
+```
+Inc/ring_file_system.h   public API
+Src/ring_file_system.c   ring + flash scan
+examples/host_demo.c     NOR-like RAM backend, reboot + overflow
+gtest/                   GoogleTest + flash simulator
 ```
 
-Adds a new slot to the external memory.
-
-```c
-int32_t read_slot(void* ext_m, uint8_t* out_buffer);
-```
-
-Reads a slot from the external memory into the provided buffer.
-
-```c
-int32_t discard_slot(void* ext_m);
-```
-
-Discards a slot that has been read from the external memory.
-
-```c
-int32_t recover_slot(void* ext_m);
-```
-
-Recovers a slot that has been discarded from the external memory.
-
-```c
-int32_t get_slot_count(void* ext_m);
-```
-
-Returns the total number of slots in the external memory.
+Drop `ring_file_system.c` / `.h` into firmware, or link the `rfs` static library from the root CMake project.
 
 ## Contributing
 
-Contributions are welcome! Please submit a pull request with your improvements or bug fixes.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports that include geometry (`size`, `sector`, `slot`) and whether overflow had already happened are the most useful.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
 
-## Acknowledgements
-
-- Author: Roman Garanin
-
-Feel free to customize this README further to better fit your project's needs.
-
-For more details on recent commits, visit [recent commits](https://github.com/Ethalon-emb/RingFileSystem/commits?per_page=5&sort=updated&order=desc).
+Flash simulator in `gtest/flashsim.*` is from Kosma Moczek (WTFPL).
