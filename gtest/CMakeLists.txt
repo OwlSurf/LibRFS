@@ -31,5 +31,8 @@ target_link_libraries(
 	      gtest_main
 	      )
 
+add_executable(host_demo ../examples/host_demo.c)
+target_link_libraries(host_demo rfs)
+
 include(GoogleTest)
 gtest_discover_tests(runtest)
