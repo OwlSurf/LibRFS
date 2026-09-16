@@ -1,9 +1,8 @@
 /**
  * Host demo: circular NOR-flash log that survives a simulated reboot.
  *
- * Build (from repo root, after configuring tests):
- *   cmake --build gtest/build --target host_demo
- *   ./gtest/build/host_demo
+ * Build from repo root:
+ *   cmake -S . -B build && cmake --build build && ./build/host_demo
  */
 
 #include "ring_file_system.h"

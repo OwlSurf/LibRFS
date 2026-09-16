@@ -53,8 +53,8 @@ void write(uint32_t address, const uint8_t *data, uint16_t length);
 You do not need a board to try it:
 
 ```sh
-git clone https://github.com/Ethalon-emb/RingFileSystem.git
-cd RingFileSystem
+git clone https://github.com/OwlSurf/LibRFS.git
+cd LibRFS
 cmake -S . -B build
 cmake --build build
 ./build/host_demo
@@ -108,7 +108,7 @@ examples/host_demo.c     NOR-like RAM backend, reboot + overflow
 gtest/                   GoogleTest + flash simulator
 ```
 
-Drop `ring_file_system.c` / `.h` into firmware, or link the `rfs` static library from the CMake test project.
+Drop `ring_file_system.c` / `.h` into firmware, or link the `rfs` static library from the root CMake project.
 
 ## Contributing
 
