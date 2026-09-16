@@ -729,8 +729,9 @@ int32_t discard_all_slots_(void *ext_m)
         }
     }
 
-    em->slot_count = 0;
-    return 0;
+    /* Only the recover window (read, not yet discarded) was dropped.
+     * Unread slots between rindex and windex must remain readable. */
+    return em->slot_count;
 }
 
 int32_t recover_all_slots_(void *ext_m)
