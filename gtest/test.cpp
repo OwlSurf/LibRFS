@@ -23,7 +23,7 @@ void close_sim(void)
 	em_driver_deinit_(em_track);
 	em_track = NULL;
 	if (sim != NULL) {
-		close_sim();
+		flashsim_close(sim);
 		sim = NULL;
 	}
 }
