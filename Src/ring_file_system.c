@@ -8,8 +8,10 @@
 #include "ring_file_system.h"
 
 #define SLOT_ERASED_BYTE 0xFFu
-#define SLOT_STATUS_UNREAD 0xFFu
-#define SLOT_STATUS_READ   0x00u
+/* NOR-safe status ladder (program only clears bits): unread -> read -> discarded. */
+#define SLOT_STATUS_UNREAD    0xFFu
+#define SLOT_STATUS_READ      0xF0u
+#define SLOT_STATUS_DISCARDED 0x00u
 
 /**
  * \struct ext_memory_s
@@ -83,6 +85,28 @@ static bool slot_is_unread(const struct ext_memory_s *em, uint32_t slot_index)
     return slot_status_byte(em, slot_index) == SLOT_STATUS_UNREAD;
 }
 
+static bool slot_is_read_marked(const struct ext_memory_s *em, uint32_t slot_index)
+{
+    if (!slot_has_data(em, slot_index)) {
+        return false;
+    }
+    return slot_status_byte(em, slot_index) == SLOT_STATUS_READ;
+}
+
+static bool slot_is_discarded(const struct ext_memory_s *em, uint32_t slot_index)
+{
+    if (!slot_has_data(em, slot_index)) {
+        return false;
+    }
+    return slot_status_byte(em, slot_index) == SLOT_STATUS_DISCARDED;
+}
+
+/* Live slot: has payload and is still in the recover/unread window (not discarded). */
+static bool slot_is_live(const struct ext_memory_s *em, uint32_t slot_index)
+{
+    return slot_is_unread(em, slot_index) || slot_is_read_marked(em, slot_index);
+}
+
 static void mark_slot_unread(struct ext_memory_s *em, uint32_t slot_index)
 {
     uint8_t mark = SLOT_STATUS_UNREAD;
@@ -92,6 +116,12 @@ static void mark_slot_unread(struct ext_memory_s *em, uint32_t slot_index)
 static void mark_slot_read(struct ext_memory_s *em, uint32_t slot_index)
 {
     uint8_t mark = SLOT_STATUS_READ;
+    em->p_write(slot_address(em, slot_index) + em->slot_size - 1u, &mark, 1);
+}
+
+static void mark_slot_discarded(struct ext_memory_s *em, uint32_t slot_index)
+{
+    uint8_t mark = SLOT_STATUS_DISCARDED;
     em->p_write(slot_address(em, slot_index) + em->slot_size - 1u, &mark, 1);
 }
 
@@ -244,7 +274,14 @@ static bool find_write_index(const struct ext_memory_s *em, uint16_t *out_windex
 static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t windex)
 {
     if (ring_is_physically_full(em)) {
-        return (uint16_t)((windex + em->max_slots - em->max_data_slots) % em->max_slots);
+        uint16_t slot = (uint16_t)((windex + em->max_slots - em->max_data_slots) % em->max_slots);
+        while (slot != windex) {
+            if (slot_is_live(em, slot)) {
+                return slot;
+            }
+            slot = next_slot_index(em, slot);
+        }
+        return windex;
     }
 
     uint16_t slot = windex;
@@ -254,13 +291,13 @@ static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t wind
         if (sector_is_fully_empty(em, sector)) {
             checked += em->sector_size_in_slots;
             slot = (uint16_t)((slot + em->sector_size_in_slots) % em->max_slots);
-            if (slot_has_data(em, slot)) {
+            if (slot_is_live(em, slot)) {
                 return slot;
             }
             continue;
         }
 
-        if (slot_has_data(em, slot)) {
+        if (slot_is_live(em, slot)) {
             return slot;
         }
 
@@ -277,7 +314,7 @@ static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t wind
             continue;
         }
 
-        if (slot_has_data(em, slot)) {
+        if (slot_is_live(em, slot)) {
             return slot;
         }
 
@@ -384,6 +421,7 @@ static bool validate_overflow_window(const struct ext_memory_s *em,
     uint16_t slot = rec_candidate;
     uint16_t unread_count = 0;
     uint16_t read_count = 0;
+    uint32_t live_count = 0;
 
     while (slot != w_candidate) {
         uint8_t status = 0;
@@ -397,11 +435,18 @@ static bool validate_overflow_window(const struct ext_memory_s *em,
             unread_count++;
         } else if (status == SLOT_STATUS_READ) {
             read_count++;
+        } else {
+            /* Discarded (or corrupt) marks must not sit inside the live window. */
+            return false;
         }
+        live_count++;
         slot = next_slot_index(em, slot);
     }
 
-    if ((uint32_t)unread_count + (uint32_t)read_count != em->max_data_slots) {
+    if (0u == live_count || live_count > em->max_data_slots) {
+        return false;
+    }
+    if ((uint32_t)unread_count + (uint32_t)read_count != live_count) {
         return false;
     }
 
@@ -420,7 +465,7 @@ static bool validate_overflow_window(const struct ext_memory_s *em,
 static uint16_t find_first_read_marked_slot(const struct ext_memory_s *em)
 {
     for (uint32_t slot = 0; slot < em->max_slots; slot++) {
-        if (slot_has_data(em, slot) && slot_status_byte(em, slot) == SLOT_STATUS_READ) {
+        if (slot_is_read_marked(em, slot)) {
             return (uint16_t)slot;
         }
     }
@@ -466,6 +511,12 @@ static bool find_overflow_indexes(const struct ext_memory_s *em,
         uint16_t w_candidate = w_candidates[i];
         uint16_t rec_index = (uint16_t)((w_candidate + em->max_slots - em->max_data_slots) % em->max_slots);
         uint16_t unread = 0;
+
+        /* Discard advances rec inside the max window; skip durable discarded marks. */
+        while (rec_index != w_candidate
+               && (slot_is_discarded(em, rec_index) || !slot_has_data(em, rec_index))) {
+            rec_index = next_slot_index(em, rec_index);
+        }
 
         if (!validate_overflow_window(em, rec_index, w_candidate, &unread)) {
             continue;
@@ -665,6 +716,7 @@ int32_t discard_slot_(void* ext_m)
 		return -1;
 	}
 
+	mark_slot_discarded(em, em->slot_rec_index);
 	em->slot_rec_count--;
 	uint16_t sector_index = em->slot_rec_index / em->sector_size_in_slots;
 	em->slot_rec_index++;
@@ -717,6 +769,7 @@ int32_t discard_all_slots_(void *ext_m)
         uint16_t sector_index =
             em->slot_rec_index / em->sector_size_in_slots;
 
+        mark_slot_discarded(em, em->slot_rec_index);
         em->slot_rec_count--;
         em->slot_rec_index++;
 

@@ -1661,10 +1661,56 @@ TEST(test_8_reboot, discard_all_preserves_unread_across_reboot)
 
 	simulate_reboot();
 	EXPECT_EQ(20, get_slot_count_(em_distance));
+	/* Discarded frontier must stay durable; recover must not revive dropped slots. */
+	EXPECT_EQ(-1, recover_slot_(em_distance));
 
 	slot_data_s read_data = {0};
 	EXPECT_EQ(19, read_one_slot(&read_data));
 	EXPECT_EQ(kTsBase + 10, read_data.ts);
+
+	flashsim_close(sim);
+}
+
+TEST(test_8_reboot, discard_survives_reboot_overflow_and_non_overflow)
+{
+	init_distance_em();
+	write_slots(1000, kTsBase);
+	read_slots(100);
+	for (uint32_t i = 0; i < 100; i++) {
+		EXPECT_NE(-1, discard_slot_(em_distance));
+	}
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(900, get_slot_count_(em_distance));
+
+	simulate_reboot();
+	EXPECT_EQ(900, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(900, recover_all_slots_(em_distance));
+	EXPECT_EQ(900, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(899, read_one_slot(&read_data));
+	EXPECT_EQ(kTsBase + 100, read_data.ts);
+
+	flashsim_close(sim);
+
+	init_distance_em();
+	const uint32_t total_writes = kMaxDataSlots + 2 * kSectorSlots + 200;
+	write_slots(total_writes, kTsBase);
+	read_slots(80);
+	for (uint32_t i = 0; i < 80; i++) {
+		EXPECT_NE(-1, discard_slot_(em_distance));
+	}
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	const int32_t unread_after_discard = get_slot_count_(em_distance);
+
+	simulate_reboot();
+	EXPECT_EQ(unread_after_discard, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(unread_after_discard, recover_all_slots_(em_distance));
+
+	EXPECT_EQ(unread_after_discard - 1, read_one_slot(&read_data));
+	EXPECT_EQ(oldest_ts(total_writes) + 80, read_data.ts);
 
 	flashsim_close(sim);
 }
