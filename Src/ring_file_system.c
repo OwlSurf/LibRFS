@@ -316,6 +316,15 @@ static uint16_t count_unread_slots(const struct ext_memory_s *em, uint16_t from,
     return count;
 }
 
+/* Live window size [from, to), matching add_slot_/discard_* slot_rec_count. */
+static uint16_t ring_slot_distance(uint16_t from, uint16_t to, uint32_t max_slots)
+{
+    if (to >= from) {
+        return (uint16_t)(to - from);
+    }
+    return (uint16_t)(max_slots - (uint32_t)from + (uint32_t)to);
+}
+
 static uint16_t count_all_unread_slots(const struct ext_memory_s *em)
 {
     uint16_t count = 0;
@@ -503,7 +512,8 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
         em->slot_rindex = rindex;
         em->slot_rec_index = rec_index;
         em->slot_count = unread;
-        em->slot_rec_count = count_unread_slots(em, rec_index, rindex);
+        /* Runtime slot_rec_count is distance(rec, w), not unread marks in [rec, r). */
+        em->slot_rec_count = ring_slot_distance(rec_index, windex, em->max_slots);
         update_in_sector_slot_index(em, windex);
         return;
     }
@@ -516,7 +526,7 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
     em->slot_rec_index = find_recovery_index(em, windex);
     em->slot_rindex = find_read_index(em, em->slot_rec_index, windex);
     em->slot_count = count_unread_slots(em, em->slot_rindex, windex);
-    em->slot_rec_count = count_unread_slots(em, em->slot_rec_index, em->slot_rindex);
+    em->slot_rec_count = ring_slot_distance(em->slot_rec_index, windex, em->max_slots);
     update_in_sector_slot_index(em, windex);
 }
 
