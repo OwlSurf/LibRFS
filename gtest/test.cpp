@@ -1668,3 +1668,54 @@ TEST(test_8_reboot, discard_all_preserves_unread_across_reboot)
 
 	flashsim_close(sim);
 }
+
+/* slot_rec_count must be restored as distance(rec, w). Using unread marks in
+ * [rec, r) leaves it at 0 after a full unread scan, so the next overflow write
+ * advances rindex without rec_index and invents a fake recover window. */
+TEST(test_8_reboot, overflow_after_reboot_does_not_invent_recover_window)
+{
+	init_distance_em();
+	write_slots(kMaxDataSlots, kTsBase);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+
+	simulate_reboot();
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+
+	write_slots(1, kTsBase + kMaxDataSlots);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	/* Empty recover window: recover_all is a no-op and returns current count. */
+	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(kMaxDataSlots - 1, read_one_slot(&read_data));
+	EXPECT_EQ(kTsBase + 1, read_data.ts);
+
+	flashsim_close(sim);
+}
+
+TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
+{
+	init_distance_em();
+	write_slots(1000, kTsBase);
+	read_slots(200);
+	simulate_reboot();
+	EXPECT_EQ(800, get_slot_count_(em_distance));
+
+	for (uint32_t i = 0; i < 200; i++) {
+		EXPECT_NE(-1, discard_slot_(em_distance));
+	}
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(800, get_slot_count_(em_distance));
+
+	write_slots(kMaxDataSlots - 800 + 100, kTsBase + 1000);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+	EXPECT_EQ(-1, recover_slot_(em_distance));
+	EXPECT_EQ(kMaxDataSlots, recover_all_slots_(em_distance));
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
