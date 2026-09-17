@@ -17,7 +17,7 @@ Most “ring buffer in flash” sketches keep `head`/`tail` in RAM (lost on rese
 This implementation treats flash itself as the source of truth:
 
 1. **Write pointer** — find the *buffer sector* (erased `0xFF` tail / first empty slot after data).
-2. **Read pointer** — walk slots and look at the last-byte mark (`0xFF` unread, `0x00` read).
+2. **Read pointer** — walk slots and look at the last-byte mark (`0xFF` unread, `0xF0` read, `0x00` discarded).
 3. **Overflow** — one sector is kept as a spare so the ring can erase ahead of the writer. After wrap, recovery also uses a **monotonic `uint32` in the first four bytes** of the slot to find the sequence break.
 
 ```
@@ -33,7 +33,7 @@ That recovery path (including overflow + reboot) is covered by the GoogleTest su
 | Rule | Why |
 |------|-----|
 | `sector_size % slot_size == 0` | Slots are packed into erase sectors |
-| Last byte of every slot is reserved | Status: `0xFF` unread, programmed to `0x00` after `read_slot_` |
+| Last byte of every slot is reserved | Status: `0xFF` unread → `0xF0` after `read_slot_` → `0x00` after `discard_slot_` (NOR bit-clear ladder) |
 | Caller leaves that byte `0xFF` on write | `add_slot_` programs the unread mark |
 | Payload should start with a monotonic `uint32` | Needed to reconstruct indexes when the ring is full |
 | One sector is never used for live data | `max_data_slots = total_slots - slots_per_sector` |
