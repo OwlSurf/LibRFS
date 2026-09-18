@@ -589,7 +589,11 @@ void add_slot_(void* ext_m, uint8_t *slot_ptr) {
         return;
     }
 
-    em->p_write(em->start_address + em->slot_windex * em->slot_size, slot_ptr, em->slot_size);
+    /* Program payload only. The status byte must stay erased (0xFF): NOR cannot
+     * raise bits, so writing a dirty last payload byte then mark_slot_unread(0xFF)
+     * would leave the slot permanently non-unread and invisible after reboot. */
+    em->p_write(em->start_address + em->slot_windex * em->slot_size, slot_ptr,
+                (uint16_t)(em->slot_size - 1u));
     mark_slot_unread(em, em->slot_windex);
 
     em->slot_count++;
