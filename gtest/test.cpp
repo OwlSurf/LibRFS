@@ -1719,3 +1719,31 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/* add_slot_ must not program the status byte from the payload. On NOR, a dirty
+ * last byte cannot be raised back to 0xFF by mark_slot_unread, so the record
+ * would vanish from em_init_ scan after reboot. */
+TEST(test_8_reboot, dirty_payload_status_byte_still_unread_after_reboot)
+{
+	init_distance_em();
+
+	slot_data_s data = {};
+	data.ts = kTsBase;
+	/* Last byte of the 8-byte slot is status; deliberately dirty it in the
+	 * caller buffer. add_slot_ must ignore it so the slot stays unread. */
+	data.id = 0x12345678u;
+	add_slot_(em_distance, (uint8_t *)&data);
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+
+	simulate_reboot();
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(0, read_one_slot(&read_data));
+	EXPECT_EQ(kTsBase, read_data.ts);
+	/* Payload bytes before the status byte are preserved; status reads as unread. */
+	EXPECT_EQ(0x345678u, read_data.id & 0x00FFFFFFu);
+	EXPECT_EQ(0xFFu, (read_data.id >> 24) & 0xFFu);
+
+	flashsim_close(sim);
+}

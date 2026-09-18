@@ -34,7 +34,7 @@ That recovery path (including overflow + reboot) is covered by the GoogleTest su
 |------|-----|
 | `sector_size % slot_size == 0` | Slots are packed into erase sectors |
 | Last byte of every slot is reserved | Status: `0xFF` unread, programmed to `0x00` after `read_slot_` |
-| Caller leaves that byte `0xFF` on write | `add_slot_` programs the unread mark |
+| Last payload byte is ignored on write | `add_slot_` programs `slot_size - 1` bytes and keeps status `0xFF` unread |
 | Payload should start with a monotonic `uint32` | Needed to reconstruct indexes when the ring is full |
 | One sector is never used for live data | `max_data_slots = total_slots - slots_per_sector` |
 | Backend must behave like NOR | Erase → `0xFF`; program only clears bits |
@@ -81,7 +81,7 @@ em_init_(em);    /* every later boot: scan flash, restore indexes */
 
 uint8_t slot[SLOT_SIZE];
 memset(slot, 0xFF, sizeof slot);
-/* fill payload; keep slot[SLOT_SIZE - 1] == 0xFF */
+/* fill payload; status byte is reserved (add_slot_ does not program it) */
 add_slot_(em, slot);
 
 uint8_t out[SLOT_SIZE];
