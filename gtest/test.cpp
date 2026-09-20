@@ -1719,3 +1719,40 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/*
+ * DIST geometry has max_slots == 65536. Overflow scan used
+ * (uint16_t)max_slots as the "no READ mark" sentinel, which truncates to 0 and
+ * makes the scanner prefer any validated window with rec_index == 0.
+ * Craft two valid heads (w=1000 and w=max_data_slots) with no READ marks; the
+ * first discontinuity (w=1000, rec=1512) must win, not rec=0.
+ */
+TEST(test_8_reboot, overflow_scan_no_read_marks_does_not_prefer_rec_zero)
+{
+	init_distance_em();
+
+	const uint32_t kSeqBase = 1000000u;
+	const uint32_t kBreakA = 1000u;
+	const uint32_t kBreakB = kMaxDataSlots; /* 65024 → rec_index 0 */
+	const uint32_t kExpectRec = kBreakA + kSectorSlots; /* 1512 */
+
+	for (uint32_t slot = 0; slot < kMaxSlots; slot++) {
+		slot_data_s data = {};
+		data.ts = kSeqBase + slot;
+		data.id = 0xFF000000u | slot;
+		if (slot == kBreakA || slot == kBreakB) {
+			data.ts = 1u;
+		}
+		flashsim_program(sim, (int)(DIST_START_ADDR + slot * DIST_SLOT_SIZE),
+				 (const uint8_t *)&data, (int)DIST_SLOT_SIZE);
+	}
+
+	simulate_reboot();
+	EXPECT_EQ((int32_t)kMaxDataSlots, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ((int32_t)kMaxDataSlots - 1, read_one_slot(&read_data));
+	EXPECT_EQ(kSeqBase + kExpectRec, read_data.ts);
+
+	flashsim_close(sim);
+}

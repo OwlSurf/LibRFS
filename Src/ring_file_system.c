@@ -417,15 +417,19 @@ static bool validate_overflow_window(const struct ext_memory_s *em,
     return true;
 }
 
-static uint16_t find_first_read_marked_slot(const struct ext_memory_s *em)
+/* Returns slot index of first READ mark, or em->max_slots when none exist.
+ * Must not narrow max_slots to uint16_t: for the default 512KiB/8B geometry
+ * max_slots is 65536, and (uint16_t)65536 == 0, which looks like a READ at
+ * slot 0 and makes overflow scan prefer rec_index == 0. */
+static uint32_t find_first_read_marked_slot(const struct ext_memory_s *em)
 {
     for (uint32_t slot = 0; slot < em->max_slots; slot++) {
         if (slot_has_data(em, slot) && slot_status_byte(em, slot) == SLOT_STATUS_READ) {
-            return (uint16_t)slot;
+            return slot;
         }
     }
 
-    return (uint16_t)em->max_slots;
+    return em->max_slots;
 }
 
 static bool find_overflow_indexes(const struct ext_memory_s *em,
@@ -441,7 +445,7 @@ static bool find_overflow_indexes(const struct ext_memory_s *em,
     uint16_t matched_rec[8];
     uint16_t matched_unread[8];
     uint16_t matched_count = 0;
-    uint16_t first_read_mark = find_first_read_marked_slot(em);
+    uint32_t first_read_mark = find_first_read_marked_slot(em);
 
     if (find_write_index_from_buffer_sector(em, &windex)) {
         push_w_candidate(w_candidates, &w_count, windex, 8);
@@ -483,10 +487,10 @@ static bool find_overflow_indexes(const struct ext_memory_s *em,
         return false;
     }
 
-  uint16_t selected = 0;
+    uint16_t selected = 0;
     if (first_read_mark < em->max_slots) {
         for (uint16_t i = 0; i < matched_count; i++) {
-            if (matched_rec[i] == first_read_mark) {
+            if ((uint32_t)matched_rec[i] == first_read_mark) {
                 selected = i;
                 break;
             }
