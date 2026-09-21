@@ -268,20 +268,21 @@ static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t wind
         checked++;
     }
 
-    slot = 0;
-    while (slot < em->max_slots) {
-        uint16_t sector = (uint16_t)(slot / em->sector_size_in_slots);
+    /* Use uint32_t: when max_slots == 65536, a uint16_t slot is always
+     * < max_slots, so an all-empty flash would spin forever. */
+    for (uint32_t slot32 = 0; slot32 < em->max_slots; ) {
+        uint16_t sector = (uint16_t)(slot32 / em->sector_size_in_slots);
 
         if (sector_is_fully_empty(em, sector)) {
-            slot = (uint16_t)(slot + em->sector_size_in_slots);
+            slot32 += em->sector_size_in_slots;
             continue;
         }
 
-        if (slot_has_data(em, slot)) {
-            return slot;
+        if (slot_has_data(em, slot32)) {
+            return (uint16_t)slot32;
         }
 
-        slot++;
+        slot32++;
     }
 
     return windex;

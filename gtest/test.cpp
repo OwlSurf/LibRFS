@@ -1719,3 +1719,27 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/*
+ * DIST geometry has max_slots == 65536. find_recovery_index used a uint16_t
+ * cursor in `while (slot < max_slots)`, which is always true, so an all-erased
+ * flash (factory reset / first boot) spun forever inside em_init_.
+ */
+TEST(test_8_reboot, empty_flash_em_init_does_not_hang)
+{
+	init_distance_em();
+	em_init_(em_distance);
+	EXPECT_EQ(0, get_slot_count_(em_distance));
+
+	slot_data_s data = {};
+	data.ts = kTsBase;
+	data.id = 0xFF000001u;
+	add_slot_(em_distance, (uint8_t *)&data);
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+
+	slot_data_s read_data = {0};
+	EXPECT_EQ(0, read_one_slot(&read_data));
+	EXPECT_EQ(kTsBase, read_data.ts);
+
+	flashsim_close(sim);
+}
