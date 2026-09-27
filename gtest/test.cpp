@@ -1719,3 +1719,47 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/* After overflow, discard_all can erase sector 0 while the true write buffer is
+ * another empty sector. em_init_ must not snap windex to the discarded hole. */
+TEST(test_8_reboot, discard_erased_sector0_does_not_steal_write_head)
+{
+	const uint32_t w_target = 2u * kSectorSlots; /* sector 2 boundary */
+	const uint32_t total_writes = kMaxSlots + w_target;
+	const uint32_t rec_after_overflow =
+		(w_target + kMaxSlots - kMaxDataSlots) % kMaxSlots;
+	const uint32_t reads_through_sector0 =
+		(kMaxSlots - rec_after_overflow) + kSectorSlots;
+
+	init_distance_em();
+	write_slots(total_writes, kTsBase);
+	EXPECT_EQ(kMaxDataSlots, get_slot_count_(em_distance));
+
+	read_slots(reads_through_sector0);
+	EXPECT_EQ((int32_t)(kMaxDataSlots - reads_through_sector0),
+		  discard_all_slots_(em_distance));
+
+	/* Model a correctly maintained buffer sector at w_target (erase-ahead of
+	 * the writer). Isolates write-head scan from the separate erase-ahead bug. */
+	flashsim_sector_erase(sim, (int)(w_target * DIST_SLOT_SIZE));
+
+	simulate_reboot();
+	EXPECT_EQ((int32_t)(kMaxDataSlots - reads_through_sector0),
+		  get_slot_count_(em_distance));
+
+	const uint32_t marker_ts = 9000000u;
+	slot_data_s marker = {};
+	marker.ts = marker_ts;
+	marker.id = 0xFF000000u;
+	add_slot_(em_distance, (uint8_t *)&marker);
+
+	slot_data_s at_zero = {};
+	slot_data_s at_w = {};
+	flashsim_read(sim, 0, (uint8_t *)&at_zero, sizeof(at_zero));
+	flashsim_read(sim, (int)(w_target * DIST_SLOT_SIZE), (uint8_t *)&at_w,
+		      sizeof(at_w));
+	EXPECT_NE(marker_ts, at_zero.ts);
+	EXPECT_EQ(marker_ts, at_w.ts);
+
+	flashsim_close(sim);
+}
