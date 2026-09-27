@@ -173,6 +173,14 @@ static bool find_write_index_from_buffer_sector(const struct ext_memory_s *em, u
         return true;
     }
 
+    /* Discard can erase an older sector (e.g. sector 0) while the true write
+     * buffer is a different empty sector. Prefer the empty sector whose
+     * predecessor ends with the highest monotonic sequence — that is the
+     * frontier the writer last advanced from. */
+    bool found = false;
+    uint16_t best_windex = 0;
+    uint32_t best_seq = 0;
+
     for (uint16_t sector = 0; sector < em->sectors; sector++) {
         if (!sector_is_fully_empty(em, sector)) {
             continue;
@@ -180,9 +188,22 @@ static bool find_write_index_from_buffer_sector(const struct ext_memory_s *em, u
 
         uint16_t prev_sector = (sector == 0) ? (uint16_t)(em->sectors - 1) : (uint16_t)(sector - 1);
         if (!sector_is_fully_empty(em, prev_sector)) {
-            *out_windex = (uint16_t)sector * em->sector_size_in_slots;
-            return true;
+            uint32_t last_slot =
+                (uint32_t)prev_sector * em->sector_size_in_slots + em->sector_size_in_slots - 1u;
+            uint32_t seq = 0;
+
+            em->p_read(slot_address(em, last_slot), (uint8_t *)&seq, sizeof(seq));
+            if (!found || seq > best_seq) {
+                found = true;
+                best_seq = seq;
+                best_windex = (uint16_t)((uint32_t)sector * em->sector_size_in_slots);
+            }
         }
+    }
+
+    if (found) {
+        *out_windex = best_windex;
+        return true;
     }
 
     return false;
