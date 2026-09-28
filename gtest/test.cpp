@@ -1719,3 +1719,31 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/* Physically full ring + uint32 sequence wrap must not be treated as the write
+ * head. (cur+1)==next mod 2^32 is still contiguous; the real frontier is a
+ * non-consecutive jump. */
+TEST(test_8_reboot, uint32_seq_wrap_is_not_write_head_on_full_ring)
+{
+	init_distance_em();
+
+	const uint32_t ts_start = 0xFFFFFFFFu - 1000u;
+	slot_data_s data = {};
+	for (uint32_t slot = 0; slot < kMaxSlots; slot++) {
+		data.ts = ts_start + slot; /* wraps at slot 1001 */
+		data.id = 0xFF000000u;
+		const uint32_t addr = DIST_START_ADDR + slot * DIST_SLOT_SIZE;
+		flashsim_program(sim, (int)addr, (const uint8_t *)&data, DIST_SLOT_SIZE);
+	}
+
+	simulate_reboot();
+	EXPECT_EQ((int32_t)kMaxDataSlots, get_slot_count_(em_distance));
+
+	slot_data_s oldest = {};
+	EXPECT_EQ((int32_t)(kMaxDataSlots - 1), read_one_slot(&oldest));
+	/* True write head after a full fill is slot 0, so rec = sector_slots and
+	 * oldest ts is ts_start + kSectorSlots — not the uint32 wrap point. */
+	EXPECT_EQ(ts_start + kSectorSlots, oldest.ts);
+
+	flashsim_close(sim);
+}

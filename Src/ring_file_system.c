@@ -202,7 +202,8 @@ static bool find_write_index_from_full_ring(const struct ext_memory_s *em, uint1
         em->p_read(slot_address(em, slot), (uint8_t *)&cur, sizeof(cur));
         em->p_read(slot_address(em, next_slot), (uint8_t *)&next, sizeof(next));
 
-        if (next < cur || (next - cur) != 1u) {
+        /* Contiguous mod 2^32 (including FFFFFFFF→0) is not a write frontier. */
+        if ((uint32_t)(cur + 1u) != next) {
             *out_windex = (uint16_t)next_slot;
             return true;
         }
@@ -221,7 +222,8 @@ static bool find_write_index_from_backward_jump(const struct ext_memory_s *em, u
         em->p_read(slot_address(em, slot), (uint8_t *)&cur, sizeof(cur));
         em->p_read(slot_address(em, next_slot), (uint8_t *)&next, sizeof(next));
 
-        if (next < cur) {
+        /* True frontier: next is older than cur, not uint32 sequential wrap. */
+        if (next < cur && (uint32_t)(cur + 1u) != next) {
             *out_windex = (uint16_t)next_slot;
             return true;
         }
@@ -457,7 +459,7 @@ static bool find_overflow_indexes(const struct ext_memory_s *em,
         em->p_read(slot_address(em, slot), (uint8_t *)&cur, sizeof(cur));
         em->p_read(slot_address(em, next_slot), (uint8_t *)&next, sizeof(next));
 
-        if (next < cur || (next - cur) != 1u) {
+        if ((uint32_t)(cur + 1u) != next) {
             push_w_candidate(w_candidates, &w_count, (uint16_t)next_slot, 8);
         }
     }
