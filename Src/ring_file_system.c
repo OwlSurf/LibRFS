@@ -241,10 +241,29 @@ static bool find_write_index(const struct ext_memory_s *em, uint16_t *out_windex
     return find_write_index_from_full_ring(em, out_windex);
 }
 
+static uint16_t overflow_frontier(const struct ext_memory_s *em, uint16_t windex)
+{
+    return (uint16_t)(((uint32_t)windex + em->max_slots - em->max_data_slots) % em->max_slots);
+}
+
+/* Writer never keeps more than max_data_slots live; anything further behind
+ * windex is a record overflow already dropped. */
+static uint16_t clamp_to_frontier(const struct ext_memory_s *em, uint16_t slot, uint16_t windex)
+{
+    uint32_t behind = (slot <= windex)
+                          ? (uint32_t)windex - (uint32_t)slot
+                          : em->max_slots - (uint32_t)slot + (uint32_t)windex;
+
+    if (behind > em->max_data_slots) {
+        return overflow_frontier(em, windex);
+    }
+    return slot;
+}
+
 static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t windex)
 {
     if (ring_is_physically_full(em)) {
-        return (uint16_t)((windex + em->max_slots - em->max_data_slots) % em->max_slots);
+        return overflow_frontier(em, windex);
     }
 
     uint16_t slot = windex;
@@ -255,13 +274,13 @@ static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t wind
             checked += em->sector_size_in_slots;
             slot = (uint16_t)((slot + em->sector_size_in_slots) % em->max_slots);
             if (slot_has_data(em, slot)) {
-                return slot;
+                return clamp_to_frontier(em, slot, windex);
             }
             continue;
         }
 
         if (slot_has_data(em, slot)) {
-            return slot;
+            return clamp_to_frontier(em, slot, windex);
         }
 
         slot = next_slot_index(em, slot);
@@ -278,7 +297,7 @@ static uint16_t find_recovery_index(const struct ext_memory_s *em, uint16_t wind
         }
 
         if (slot_has_data(em, slot)) {
-            return slot;
+            return clamp_to_frontier(em, slot, windex);
         }
 
         slot++;

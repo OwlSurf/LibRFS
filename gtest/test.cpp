@@ -1719,3 +1719,33 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/*
+ * After one wrap + discard that erases sector 0, overflow validation fails and
+ * find_recovery_index must clamp to the overflow frontier so em_init_ does not
+ * resurrect records a full lap behind windex.
+ */
+TEST(test_8_reboot, recovery_index_must_not_predate_overflow_frontier)
+{
+	init_distance_em();
+
+	const uint32_t writes = kMaxSlots + kSectorSlots + 1; /* 66049 */
+	write_slots(writes, kTsBase);
+	EXPECT_EQ((int32_t)kMaxDataSlots, get_slot_count_(em_distance));
+
+	const uint32_t drain = kMaxDataSlots - 1; /* 65023 */
+	read_slots(drain);
+	for (uint32_t i = 0; i < drain; i++) {
+		discard_slot_(em_distance);
+	}
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+
+	simulate_reboot();
+
+	EXPECT_EQ(1, get_slot_count_(em_distance));
+	slot_data_s read_data = {0};
+	EXPECT_EQ(0, read_one_slot(&read_data));
+	EXPECT_EQ(kTsBase + writes - 1, read_data.ts);
+
+	flashsim_close(sim);
+}
