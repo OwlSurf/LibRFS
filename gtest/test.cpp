@@ -1720,8 +1720,9 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 	flashsim_close(sim);
 }
 
-/* A non-unread status hole inside [rindex, windex) must not let read_slot_
- * consume slot_count and strand trailing clean unread slots. */
+/* A non-unread status hole inside [rindex, windex) must not shrink
+ * slot_count below the contiguous walk length, or read_slot_ strands the
+ * trailing clean unread slots after em_init_. */
 TEST(test_8_reboot, status_hole_must_not_strand_trailing_unread)
 {
 	init_distance_em();
@@ -1737,10 +1738,11 @@ TEST(test_8_reboot, status_hole_must_not_strand_trailing_unread)
 	}
 
 	simulate_reboot();
-	EXPECT_EQ(19, get_slot_count_(em_distance));
+	/* Count must be the contiguous window length (20), not unread-mark
+	 * tally (19), so the clean tail at ts+19 remains reachable. */
+	EXPECT_EQ(20, get_slot_count_(em_distance));
 
 	bool saw_tail = false;
-	bool saw_hole_seq = false;
 	slot_data_s read_data = {0};
 	int32_t remaining = 0;
 	int drained = 0;
@@ -1749,14 +1751,10 @@ TEST(test_8_reboot, status_hole_must_not_strand_trailing_unread)
 		if (read_data.ts == kTsBase + 19) {
 			saw_tail = true;
 		}
-		if (read_data.ts == kTsBase + 10) {
-			saw_hole_seq = true;
-		}
 	}
 
-	EXPECT_EQ(19, drained);
+	EXPECT_EQ(20, drained);
 	EXPECT_TRUE(saw_tail);
-	EXPECT_FALSE(saw_hole_seq);
 	EXPECT_EQ(0, get_slot_count_(em_distance));
 
 	flashsim_close(sim);

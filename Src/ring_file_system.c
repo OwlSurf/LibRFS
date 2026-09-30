@@ -511,7 +511,11 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
         em->slot_windex = windex;
         em->slot_rindex = rindex;
         em->slot_rec_index = rec_index;
-        em->slot_count = unread;
+        /* Match read_slot_'s contiguous walk: count is distance(r, w), not the
+         * unread-mark tally. A non-unread hole mid-window must not shrink count
+         * or the tail of the window becomes unreachable. */
+        (void)unread;
+        em->slot_count = ring_slot_distance(rindex, windex, em->max_slots);
         /* Runtime slot_rec_count is distance(rec, w), not unread marks in [rec, r). */
         em->slot_rec_count = ring_slot_distance(rec_index, windex, em->max_slots);
         update_in_sector_slot_index(em, windex);
@@ -525,7 +529,7 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
     em->slot_windex = windex;
     em->slot_rec_index = find_recovery_index(em, windex);
     em->slot_rindex = find_read_index(em, em->slot_rec_index, windex);
-    em->slot_count = count_unread_slots(em, em->slot_rindex, windex);
+    em->slot_count = ring_slot_distance(em->slot_rindex, windex, em->max_slots);
     em->slot_rec_count = ring_slot_distance(em->slot_rec_index, windex, em->max_slots);
     update_in_sector_slot_index(em, windex);
 }
@@ -641,24 +645,14 @@ int32_t read_slot_(void* ext_m, uint8_t* out_buffer) {
         return -1;
     }
 
-    /* slot_count counts unread marks in [rindex, windex), but rindex walks
-     * contiguously. Skip non-unread holes so a dirty/READ status mid-window
-     * cannot consume count and strand trailing unread slots. */
-    while (em->slot_rindex != em->slot_windex &&
-           !slot_is_unread(em, em->slot_rindex)) {
-        em->slot_rindex = next_slot_index(em, em->slot_rindex);
-    }
-    if (em->slot_rindex == em->slot_windex ||
-        !slot_is_unread(em, em->slot_rindex)) {
-        em->slot_count = 0;
-        return -1;
-    }
-
     uint32_t address = em->start_address + em->slot_rindex * em->slot_size;
     em->p_read(address, out_buffer, em->slot_size);
     mark_slot_read(em, em->slot_rindex);
 
-    em->slot_rindex = next_slot_index(em, em->slot_rindex);
+    em->slot_rindex++;
+    if (em->slot_rindex == em->max_slots) {
+        em->slot_rindex = 0;
+    }
 
     em->slot_count--;
     return em->slot_count;
