@@ -511,7 +511,11 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
         em->slot_windex = windex;
         em->slot_rindex = rindex;
         em->slot_rec_index = rec_index;
-        em->slot_count = unread;
+        /* Match read_slot_'s contiguous walk: count is distance(r, w), not the
+         * unread-mark tally. A non-unread hole mid-window must not shrink count
+         * or the tail of the window becomes unreachable. */
+        (void)unread;
+        em->slot_count = ring_slot_distance(rindex, windex, em->max_slots);
         /* Runtime slot_rec_count is distance(rec, w), not unread marks in [rec, r). */
         em->slot_rec_count = ring_slot_distance(rec_index, windex, em->max_slots);
         update_in_sector_slot_index(em, windex);
@@ -525,7 +529,7 @@ static void scan_indexes_from_flash(struct ext_memory_s *em)
     em->slot_windex = windex;
     em->slot_rec_index = find_recovery_index(em, windex);
     em->slot_rindex = find_read_index(em, em->slot_rec_index, windex);
-    em->slot_count = count_unread_slots(em, em->slot_rindex, windex);
+    em->slot_count = ring_slot_distance(em->slot_rindex, windex, em->max_slots);
     em->slot_rec_count = ring_slot_distance(em->slot_rec_index, windex, em->max_slots);
     update_in_sector_slot_index(em, windex);
 }
