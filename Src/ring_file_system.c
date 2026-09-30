@@ -641,14 +641,24 @@ int32_t read_slot_(void* ext_m, uint8_t* out_buffer) {
         return -1;
     }
 
+    /* slot_count counts unread marks in [rindex, windex), but rindex walks
+     * contiguously. Skip non-unread holes so a dirty/READ status mid-window
+     * cannot consume count and strand trailing unread slots. */
+    while (em->slot_rindex != em->slot_windex &&
+           !slot_is_unread(em, em->slot_rindex)) {
+        em->slot_rindex = next_slot_index(em, em->slot_rindex);
+    }
+    if (em->slot_rindex == em->slot_windex ||
+        !slot_is_unread(em, em->slot_rindex)) {
+        em->slot_count = 0;
+        return -1;
+    }
+
     uint32_t address = em->start_address + em->slot_rindex * em->slot_size;
     em->p_read(address, out_buffer, em->slot_size);
     mark_slot_read(em, em->slot_rindex);
 
-    em->slot_rindex++;
-    if (em->slot_rindex == em->max_slots) {
-        em->slot_rindex = 0;
-    }
+    em->slot_rindex = next_slot_index(em, em->slot_rindex);
 
     em->slot_count--;
     return em->slot_count;
