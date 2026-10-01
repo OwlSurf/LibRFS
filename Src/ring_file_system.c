@@ -483,8 +483,26 @@ static bool find_overflow_indexes(const struct ext_memory_s *em,
         return false;
     }
 
-  uint16_t selected = 0;
-    if (first_read_mark < em->max_slots) {
+    /* Prefer the buffer-sector write head when it validated. Stale READ marks
+     * left in the gap after overflow can make an older (rec,w) window look
+     * valid and also match find_first_read_marked_slot, which would snap to
+     * that older window and drop the newest records after reboot. */
+    uint16_t selected = 0;
+    uint16_t buffer_w = 0;
+    bool have_buffer_w = find_write_index_from_buffer_sector(em, &buffer_w);
+    bool selected_by_buffer = false;
+
+    if (have_buffer_w) {
+        for (uint16_t i = 0; i < matched_count; i++) {
+            if (matched_w[i] == buffer_w) {
+                selected = i;
+                selected_by_buffer = true;
+                break;
+            }
+        }
+    }
+
+    if (!selected_by_buffer && first_read_mark < em->max_slots) {
         for (uint16_t i = 0; i < matched_count; i++) {
             if (matched_rec[i] == first_read_mark) {
                 selected = i;

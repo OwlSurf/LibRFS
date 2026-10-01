@@ -1719,3 +1719,72 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/* After read-without-discard then overflow, stale READ marks in the gap can
+ * make an older (rec,w) window validate and match first_read_mark. Reboot must
+ * keep the buffer-sector write head so newest overflow records stay readable. */
+TEST(test_8_reboot, overflow_with_stale_read_marks_keeps_newest_after_reboot)
+{
+	constexpr uint32_t kMemSize = 4u * 4096u;
+	constexpr uint16_t kSectorSize = 4096;
+	constexpr uint16_t kSlotSize = 256;
+	constexpr uint32_t kSlots = kMemSize / kSlotSize;
+	constexpr uint32_t kSectorSlotCount = kSectorSize / kSlotSize;
+	constexpr uint32_t kDataSlots = kSlots - kSectorSlotCount;
+	constexpr uint32_t kReadBeforeOverflow = 5;
+	constexpr uint32_t kOverflowWrites = kReadBeforeOverflow + 1;
+
+	sim = flashsim_open("overflow_stale_read.sim", (int)kMemSize, (int)kSectorSize);
+	void *em = em_driver_init_((void *)op_sector_erase,
+				   (void *)op_read,
+				   (void *)op_program,
+				   kMemSize,
+				   kSectorSize,
+				   kSlotSize,
+				   0);
+	em_reset_(em);
+
+	uint8_t slot[kSlotSize];
+	for (uint32_t i = 0; i < kDataSlots; i++) {
+		memset(slot, 0xFF, sizeof(slot));
+		uint32_t ts = 1000u + i;
+		memcpy(slot, &ts, sizeof(ts));
+		add_slot_(em, slot);
+	}
+
+	uint8_t out[kSlotSize];
+	for (uint32_t i = 0; i < kReadBeforeOverflow; i++) {
+		ASSERT_NE(-1, read_slot_(em, out));
+	}
+
+	for (uint32_t i = 0; i < kOverflowWrites; i++) {
+		memset(slot, 0xFF, sizeof(slot));
+		uint32_t ts = 3000u + i;
+		memcpy(slot, &ts, sizeof(ts));
+		add_slot_(em, slot);
+	}
+
+	EXPECT_EQ((int32_t)kDataSlots, get_slot_count_(em));
+
+	em_init_(em);
+	EXPECT_EQ((int32_t)kDataSlots, get_slot_count_(em));
+
+	ASSERT_NE(-1, read_slot_(em, out));
+	uint32_t first_ts = 0;
+	memcpy(&first_ts, out, sizeof(first_ts));
+	/* One unread was dropped by overflow past the K reads. */
+	EXPECT_EQ(1000u + kReadBeforeOverflow + 1u, first_ts);
+
+	uint32_t saw_overflow = 0;
+	while (get_slot_count_(em) > 0) {
+		ASSERT_NE(-1, read_slot_(em, out));
+		uint32_t ts = 0;
+		memcpy(&ts, out, sizeof(ts));
+		if (ts >= 3000u && ts < 3000u + kOverflowWrites) {
+			saw_overflow++;
+		}
+	}
+	EXPECT_EQ(kOverflowWrites, saw_overflow);
+
+	flashsim_close(sim);
+}
