@@ -1719,3 +1719,22 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+TEST(test_init, rejects_geometry_with_more_than_65536_slots)
+{
+	/* 528384 / 8 = 66048 slots: uint16 w/r/rec indices wrap before max_slots. */
+	constexpr uint32_t kOversizedMem = 524288u + 4096u;
+	constexpr uint16_t kSectorSize = 4096;
+	constexpr uint16_t kSlotSize = 8;
+
+	sim = flashsim_open("oversized.sim", (int)kOversizedMem, (int)kSectorSize);
+	void *em = em_driver_init_((void *)op_sector_erase,
+				   (void *)op_read,
+				   (void *)op_program,
+				   kOversizedMem,
+				   kSectorSize,
+				   kSlotSize,
+				   0);
+	EXPECT_EQ(nullptr, em);
+	flashsim_close(sim);
+}
