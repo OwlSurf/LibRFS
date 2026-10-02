@@ -10,6 +10,9 @@
 #define SLOT_ERASED_BYTE 0xFFu
 #define SLOT_STATUS_UNREAD 0xFFu
 #define SLOT_STATUS_READ   0x00u
+/* Runtime slot indexes are uint16_t; max_slots may be 65536 (wrap via uint16
+ * overflow) but larger geometries corrupt w/r/rec silently. */
+#define MAX_SUPPORTED_SLOTS 65536u
 
 /**
  * \struct ext_memory_s
@@ -554,6 +557,10 @@ void *em_driver_init_(void* pp_sector_erase,
     em->sectors = em_size / em_sector_size;
     em->slot_size = em_slot_size;
     em->max_slots = em_size / em_slot_size;
+    if (em->max_slots > MAX_SUPPORTED_SLOTS) {
+        free(em);
+        return NULL;
+    }
     em->max_data_slots = em->max_slots - em->sector_size_in_slots;
     em->slot_windex = 0;
     em->slot_rindex = 0;
