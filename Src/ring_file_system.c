@@ -549,9 +549,27 @@ void *em_driver_init_(void* pp_sector_erase,
     em->p_sector_erase = (void (*)(uint32_t))pp_sector_erase;
     em->p_read = (void (*)(uint32_t, uint8_t*, uint16_t))pp_read;
     em->p_write = (void (*)(uint32_t, const uint8_t*, uint16_t))pp_write;
+
+    /* sectors is stored in uint16_t. A count of 65536 truncates to 0, so
+     * em_reset_ erases nothing and em_init_ treats live flash as empty. */
+    if (0u == em_sector_size || 0u == em_slot_size) {
+        free(em);
+        return NULL;
+    }
+
+    uint32_t sector_count = em_size / em_sector_size;
+    if (0u == sector_count || sector_count > 65535u) {
+        free(em);
+        return NULL;
+    }
+
     em->sector_size = em_sector_size;
-    em->sector_size_in_slots = em_sector_size/em_slot_size;
-    em->sectors = em_size / em_sector_size;
+    em->sector_size_in_slots = em_sector_size / em_slot_size;
+    if (0u == em->sector_size_in_slots) {
+        free(em);
+        return NULL;
+    }
+    em->sectors = (uint16_t)sector_count;
     em->slot_size = em_slot_size;
     em->max_slots = em_size / em_slot_size;
     em->max_data_slots = em->max_slots - em->sector_size_in_slots;

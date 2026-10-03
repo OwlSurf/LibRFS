@@ -1719,3 +1719,21 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+TEST(test_init, rejects_geometry_with_more_than_65535_sectors)
+{
+	/* 65536 × 16 B sectors with 16 B slots: max_slots fits uint16 indexes, but
+	 * sectors is uint16_t so 65536 truncates to 0 and reboot scan drops data. */
+	constexpr uint32_t kSectorSize = 16;
+	constexpr uint32_t kSlotSize = 16;
+	constexpr uint32_t kMem = 65536u * kSectorSize;
+
+	void *em = em_driver_init_((void *)op_sector_erase,
+				   (void *)op_read,
+				   (void *)op_program,
+				   kMem,
+				   (uint16_t)kSectorSize,
+				   (uint16_t)kSlotSize,
+				   0);
+	EXPECT_EQ(nullptr, em);
+}
