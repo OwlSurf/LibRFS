@@ -1719,3 +1719,27 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/* em_size must be a multiple of sector_size (and sector of slot). Otherwise
+ * max_slots extends past the last full sector and erase-ahead after filling
+ * that sector erases outside the configured region. */
+TEST(test_init, rejects_size_not_multiple_of_sector)
+{
+	void *em = em_driver_init_((void *)op_sector_erase,
+				   (void *)op_read,
+				   (void *)op_program,
+				   5000u,
+				   EXT_MEM_SECTOR_SIZE,
+				   DIST_SLOT_SIZE,
+				   0);
+	EXPECT_EQ(nullptr, em);
+
+	em = em_driver_init_((void *)op_sector_erase,
+			     (void *)op_read,
+			     (void *)op_program,
+			     EXT_MEM_SECTOR_SIZE,
+			     EXT_MEM_SECTOR_SIZE,
+			     100u,
+			     0);
+	EXPECT_EQ(nullptr, em);
+}
