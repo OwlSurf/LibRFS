@@ -549,8 +549,20 @@ void *em_driver_init_(void* pp_sector_erase,
     em->p_sector_erase = (void (*)(uint32_t))pp_sector_erase;
     em->p_read = (void (*)(uint32_t, uint8_t*, uint16_t))pp_read;
     em->p_write = (void (*)(uint32_t, const uint8_t*, uint16_t))pp_write;
+
+    /* Geometry must be an integer number of sectors and slots. Otherwise
+     * max_slots can extend past sectors * slots_per_sector, and erase-ahead
+     * after filling the last full sector erases start + sectors*sector_size,
+     * which lies outside the configured region (adjacent flash corruption). */
+    if (0u == em_sector_size || 0u == em_slot_size
+        || (em_size % em_sector_size) != 0u
+        || (em_sector_size % em_slot_size) != 0u) {
+        free(em);
+        return NULL;
+    }
+
     em->sector_size = em_sector_size;
-    em->sector_size_in_slots = em_sector_size/em_slot_size;
+    em->sector_size_in_slots = em_sector_size / em_slot_size;
     em->sectors = em_size / em_sector_size;
     em->slot_size = em_slot_size;
     em->max_slots = em_size / em_slot_size;
