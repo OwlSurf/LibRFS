@@ -1719,3 +1719,46 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/*
+ * Unread must not use the erased byte value 0xFF. An all-0xFF payload would
+ * otherwise look empty, so em_init_ treats that slot as the write head and
+ * drops earlier unread records after reboot.
+ */
+TEST(test_8_reboot, all_ff_payload_survives_reboot_scan)
+{
+	init_distance_em();
+
+	uint8_t slot[DIST_SLOT_SIZE];
+	for (uint32_t n = 0; n < 5; n++) {
+		memset(slot, 0xA5, sizeof(slot));
+		slot[0] = (uint8_t)(n + 1);
+		slot[1] = 0;
+		slot[2] = 0;
+		slot[3] = 0;
+		slot[DIST_SLOT_SIZE - 1] = 0xFF; /* leave status erased for mark */
+		if (n == 2) {
+			memset(slot, 0xFF, sizeof(slot));
+		}
+		add_slot_(em_distance, slot);
+	}
+	EXPECT_EQ(5, get_slot_count_(em_distance));
+
+	simulate_reboot();
+	EXPECT_EQ(5, get_slot_count_(em_distance));
+
+	uint8_t out[DIST_SLOT_SIZE];
+	for (uint32_t n = 0; n < 5; n++) {
+		EXPECT_EQ((int32_t)(4 - n), read_slot_(em_distance, out));
+		if (n == 2) {
+			for (uint16_t i = 0; i < DIST_SLOT_SIZE - 1; i++) {
+				EXPECT_EQ(0xFF, out[i]);
+			}
+		} else {
+			EXPECT_EQ((uint8_t)(n + 1), out[0]);
+		}
+	}
+	EXPECT_EQ(0, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
