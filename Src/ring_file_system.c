@@ -8,7 +8,10 @@
 #include "ring_file_system.h"
 
 #define SLOT_ERASED_BYTE 0xFFu
-#define SLOT_STATUS_UNREAD 0xFFu
+/* Unread must clear at least one bit vs erase (0xFF). Otherwise an all-0xFF
+ * payload is indistinguishable from an erased slot, and em_init_ snaps the
+ * write head into the middle of the log (silent loss after reboot). */
+#define SLOT_STATUS_UNREAD 0xFEu
 #define SLOT_STATUS_READ   0x00u
 
 /**

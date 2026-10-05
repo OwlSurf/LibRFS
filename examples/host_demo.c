@@ -21,7 +21,7 @@ struct slot_record {
     uint32_t seq;      /* monotonic sequence — used on overflow recovery */
     uint32_t event_id;
     uint8_t  pad[7];
-    uint8_t  status;   /* last byte is reserved: leave 0xFF on write */
+    uint8_t  status;   /* last byte reserved: leave 0xFF so add_slot_ can program 0xFE unread */
 };
 
 static uint8_t g_flash[DEMO_SIZE];
