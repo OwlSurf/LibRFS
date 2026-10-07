@@ -1719,3 +1719,48 @@ TEST(test_8_reboot, discard_then_overflow_after_reboot_keeps_rec_frontier)
 
 	flashsim_close(sim);
 }
+
+/*
+ * When max_data_slots == 65535 (65536 slots, one slot per sector), uint16_t
+ * slot_count++ wraps to 0 before the overflow clamp. The write that fills the
+ * ring must leave count at max_data_slots, not 0.
+ */
+TEST(test_7_lifecycle, slot_count_must_not_wrap_at_uint16_max)
+{
+	constexpr uint16_t kTinySector = DIST_SLOT_SIZE; /* one slot per sector */
+	constexpr uint32_t kSlots = 65536u;
+	constexpr uint32_t kDataSlots = kSlots - 1u;
+	constexpr uint32_t kBytes = kSlots * DIST_SLOT_SIZE;
+
+	sim = flashsim_open("count_wrap.sim", (int)kBytes, (int)kTinySector);
+	em_distance = em_driver_init_((void *)op_sector_erase,
+				      (void *)op_read,
+				      (void *)op_program,
+				      kBytes,
+				      kTinySector,
+				      DIST_SLOT_SIZE,
+				      0);
+	ASSERT_NE(nullptr, em_distance);
+	em_reset_(em_distance);
+
+	slot_data_s data = {};
+	for (uint32_t i = 0; i < kDataSlots; i++) {
+		data.ts = kTsBase + i;
+		data.id = 0xFF000000u | (i & 0x00FFFFFFu);
+		add_slot_(em_distance, (uint8_t *)&data);
+	}
+	EXPECT_EQ((int32_t)kDataSlots, get_slot_count_(em_distance));
+
+	data.ts = kTsBase + kDataSlots;
+	data.id = 0xFF000000u | (kDataSlots & 0x00FFFFFFu);
+	add_slot_(em_distance, (uint8_t *)&data);
+	/* Overflow write must clamp to max_data_slots, not wrap count to 0. */
+	EXPECT_EQ((int32_t)kDataSlots, get_slot_count_(em_distance));
+
+	data.ts = kTsBase + kDataSlots + 1u;
+	data.id = 0xFF000001u;
+	add_slot_(em_distance, (uint8_t *)&data);
+	EXPECT_EQ((int32_t)kDataSlots, get_slot_count_(em_distance));
+
+	flashsim_close(sim);
+}
