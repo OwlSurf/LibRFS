@@ -592,22 +592,28 @@ void add_slot_(void* ext_m, uint8_t *slot_ptr) {
     em->p_write(em->start_address + em->slot_windex * em->slot_size, slot_ptr, em->slot_size);
     mark_slot_unread(em, em->slot_windex);
 
-    em->slot_count++;
-
-    if (em->slot_count > em->max_data_slots) { // Buffer overflow.
-        em->slot_count = em->max_data_slots;
+    /* Compare before increment: slot_count is uint16_t, so ++ when it equals
+     * UINT16_MAX (max_data_slots==65535, i.e. max_slots==65536 and one slot
+     * per sector) wraps to 0 and the old `count > max_data_slots` check never
+     * fires — count stays 0 and reads fail while flash still holds data. */
+    if ((uint32_t)em->slot_count < em->max_data_slots) {
+        em->slot_count++;
+    } else {
+        /* Already at capacity: drop oldest from the read window. */
+        em->slot_count = (uint16_t)em->max_data_slots;
         em->slot_rindex++;
-        if ( em->slot_rindex == em->max_slots) {
-        	 em->slot_rindex = 0;
+        if (em->slot_rindex == em->max_slots) {
+            em->slot_rindex = 0;
         }
     }
 
-    em->slot_rec_count++;
-    if ( em->slot_rec_count > em->max_data_slots ) {
-    	em->slot_rec_count = em->max_data_slots;
+    if ((uint32_t)em->slot_rec_count < em->max_data_slots) {
+        em->slot_rec_count++;
+    } else {
+        em->slot_rec_count = (uint16_t)em->max_data_slots;
         em->slot_rec_index++;
-        if ( em->slot_rec_index == em->max_slots) {
-        	 em->slot_rec_index = 0;
+        if (em->slot_rec_index == em->max_slots) {
+            em->slot_rec_index = 0;
         }
     }
 
